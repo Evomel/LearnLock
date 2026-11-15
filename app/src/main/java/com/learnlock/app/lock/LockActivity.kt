@@ -1,0 +1,65 @@
+package com.learnlock.app.lock
+
+import android.os.Bundle
+import android.view.WindowManager
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.learnlock.app.LearnLockApp
+import com.learnlock.app.ui.screens.LockTaskScreen
+import com.learnlock.app.ui.theme.LearnLockTheme
+import com.learnlock.app.ui.viewmodel.LockViewModel
+import com.learnlock.app.ui.viewmodel.LockViewModelFactory
+
+class LockActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+        )
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    // Block back to keep task friction — except preview mode.
+                    if (intent.getBooleanExtra(EXTRA_FORCE_PREVIEW, false)) {
+                        finish()
+                    }
+                }
+            }
+        )
+
+        val forcePreview = intent.getBooleanExtra(EXTRA_FORCE_PREVIEW, false)
+        val app = application as LearnLockApp
+        setContent {
+            LearnLockTheme {
+                val vm: LockViewModel = viewModel(
+                    factory = LockViewModelFactory(app.container.repository)
+                )
+                LaunchedEffect(forcePreview) { vm.load(forcePreview = forcePreview) }
+                LockTaskScreen(
+                    state = vm.uiState,
+                    onAnswer = { vm.submitAnswer(it) },
+                    onUseHint = { vm.useHint() },
+                    onParentUnlock = { pin -> vm.parentUnlock(pin) },
+                    onDismissIfUnlocked = {
+                        if (vm.uiState.unlocked) finish()
+                    },
+                    onToggleParentPin = { vm.toggleParentPin(it) }
+                )
+            }
+        }
+    }
+
+    companion object {
+        const val EXTRA_FORCE_PREVIEW = "force_preview"
+    }
+}

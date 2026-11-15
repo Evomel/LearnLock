@@ -1,0 +1,357 @@
+package com.learnlock.taskengine
+
+import kotlin.random.Random
+
+/**
+ * Расширенная логика: числовые последовательности (арифметика,
+ * геометрия, вторые разности), узоры, текстовые задачи.
+ */
+class ExpandedLogicProvider(
+    private val repeatAvoidance: RepeatAvoidance = RepeatAvoidance()
+) : TaskProvider {
+    override val category: TaskCategory = TaskCategory.LOGIC
+
+    private val names = listOf("Маши", "Пети", "Ани", "Игоря", "Серёжи", "Оли", "Кати", "Димы")
+    private val items = listOf("яблок", "карандашей", "наклеек", "конфет", "марок", "открыток")
+
+    override fun generate(
+        profile: DifficultyProfile,
+        random: Random,
+        preferredSkill: SkillTag?
+    ): Task {
+        var task = generateOnce(profile, random, preferredSkill)
+        var attempts = 0
+        while (repeatAvoidance.isRecent(task) && attempts < 8) {
+            task = generateOnce(profile, random, preferredSkill)
+            attempts++
+        }
+        repeatAvoidance.markSeen(task)
+        return task
+    }
+
+    private fun generateOnce(
+        profile: DifficultyProfile,
+        random: Random,
+        preferredSkill: SkillTag?
+    ): Task {
+        val level = profile.level()
+        val skill = preferredSkill?.takeIf { it.category == category }
+        return if (skill != null) {
+            when (skill) {
+                SkillTag.LOGIC_SEQ -> sequence(level, random)
+                SkillTag.LOGIC_PATTERN -> pattern(level, random)
+                SkillTag.LOGIC_WORD -> wordProblem(level, random)
+                else -> byLevel(level, random)
+            }
+        } else byLevel(level, random)
+    }
+
+    private fun byLevel(level: Int, random: Random): Task = when {
+        level <= 3 -> sequence(level, random)
+        level <= 6 -> sequence(level, random)
+        else -> if (random.nextBoolean()) pattern(level, random) else wordProblem(level, random)
+    }
+
+    private fun sequence(level: Int, random: Random): Task {
+        return when (random.nextInt(if (level <= 3) 2 else 4)) {
+            0 -> arithmetic(level, random)
+            1 -> geometric(level, random)
+            2 -> fibonacciish(level, random)
+            else -> secondDiff(level, random)
+        }
+    }
+
+    private fun arithmetic(level: Int, random: Random): Task {
+        val step = when {
+            level <= 3 -> 1
+            level <= 5 -> random.nextInt(2, 5)
+            else -> random.nextInt(-4, 7).let { if (it == 0) 3 else it }
+        }
+        val start = random.nextInt(1, if (level <= 4) 12 else 21)
+        val seq = List(4) { start + it * step }
+        val answer = start + 4 * step
+        val distractors = buildList {
+            add(answer + step)
+            add(answer - 1)
+            add(answer + 2)
+            add(answer - step)
+            add(answer + if (step > 0) -step * 2 else -step * 2)
+        }.filter { it != answer && it >= 0 }.distinct()
+        val options = (distractors.shuffled(random).take(3) + answer).shuffled(random)
+        return Task(
+            id = "logic-seq-$start-$step",
+            category = category,
+            prompt = "${TextVariator(random).askNext()}?\n${seq.joinToString(", ")}, ?",
+            inputType = AnswerInputType.CHOICE,
+            choices = options.mapIndexed { index, value ->
+                TaskChoice(index.toString(), value.toString())
+            },
+            acceptedAnswers = listOf(answer.toString()),
+            hint = "Найди шаг последовательности: прибавляется или вычитается одно и то же число",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_SEQ
+        )
+    }
+
+    private fun geometric(level: Int, random: Random): Task {
+        val ratio = if (level <= 5) 2 else 3
+        val start = random.nextInt(1, if (level <= 4) 6 else 12)
+        val seq = List(4) { start * Math.pow(ratio.toDouble(), it.toDouble()).toInt() }
+        val answer = seq.last() * ratio
+        val options = listOf(
+            answer,
+            answer + ratio,
+            answer - ratio,
+            answer * 2 - ratio
+        ).distinct().filter { it > 0 }.shuffled(random).take(4)
+        val ensured = if (answer in options) options else (options.dropLast(1) + answer).shuffled(random)
+        return Task(
+            id = "logic-geo-$start-$ratio",
+            category = category,
+            prompt = "${TextVariator(random).askNext()}?\n${seq.joinToString(", ")}, ?",
+            inputType = AnswerInputType.CHOICE,
+            choices = ensured.mapIndexed { index, value ->
+                TaskChoice(index.toString(), value.toString())
+            },
+            acceptedAnswers = listOf(answer.toString()),
+            hint = "Каждое следующее число получается умножением на $ratio",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_SEQ
+        )
+    }
+
+    private fun fibonacciish(level: Int, random: Random): Task {
+        val a = random.nextInt(1, 6)
+        val b = random.nextInt(1, 6)
+        val c = a + b
+        val d = b + c
+        val e = c + d
+        val seq = listOf(a, b, c, d)
+        val answer = e
+        val options = (listOf(answer + 1, answer - 1, answer + 2, answer + a) + answer)
+            .distinct().filter { it > 0 }.shuffled(random).take(4)
+        val ensured = if (answer in options) options else (options.dropLast(1) + answer).shuffled(random)
+        return Task(
+            id = "logic-fib-$a-$b",
+            category = category,
+            prompt = "${TextVariator(random).askNext()}?\n${seq.joinToString(", ")}, ?",
+            inputType = AnswerInputType.CHOICE,
+            choices = ensured.mapIndexed { index, value ->
+                TaskChoice(index.toString(), value.toString())
+            },
+            acceptedAnswers = listOf(answer.toString()),
+            hint = "Каждое число — сумма двух предыдущих",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_SEQ
+        )
+    }
+
+    private fun secondDiff(level: Int, random: Random): Task {
+        // Квадратичная последовательность: a, a+d1, a+d1+d2, ... с постоянной второй разностью
+        val d1 = random.nextInt(1, 4)
+        val d2 = random.nextInt(1, 3)
+        val start = random.nextInt(1, 8)
+        val seq = List(4) { i ->
+            var v = start
+            var diff = d1
+            repeat(i) { v += diff; diff += d2 }
+            v
+        }
+        var next = seq.last()
+        var diff = d1 + 3 * d2 // d1,d1+d2,d1+2d2,d1+3d2
+        next += diff
+        val answer = next
+        val options = (listOf(answer + d2, answer - d2, answer + 1, answer + d1) + answer)
+            .distinct().filter { it > 0 }.shuffled(random).take(4)
+        val ensured = if (answer in options) options else (options.dropLast(1) + answer).shuffled(random)
+        return Task(
+            id = "logic-seq2-$start-$d1-$d2",
+            category = category,
+            prompt = "${TextVariator(random).askNext()}?\n${seq.joinToString(", ")}, ?",
+            inputType = AnswerInputType.CHOICE,
+            choices = ensured.mapIndexed { index, value ->
+                TaskChoice(index.toString(), value.toString())
+            },
+            acceptedAnswers = listOf(answer.toString()),
+            hint = "Разности между соседними числами растут на одно и то же число",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_SEQ
+        )
+    }
+
+    private fun pattern(level: Int, random: Random): Task {
+        val shapes = listOf("●", "■", "▲", "◆", "★", "♥")
+        return when (random.nextInt(if (level <= 4) 2 else 3)) {
+            0 -> alternating(shapes, random, level)
+            1 -> growing(shapes, random, level)
+            else -> triple(shapes, random, level)
+        }
+    }
+
+    private fun alternating(shapes: List<String>, random: Random, level: Int): Task {
+        val a = shapes.random(random)
+        val b = shapes.filter { it != a }.random(random)
+        val pattern = listOf(a, b, a, b, a)
+        val answer = b
+        val options = shapes.shuffled(random).take(4)
+        val ensured = if (answer in options) options else (options.dropLast(1) + answer).shuffled(random)
+        return Task(
+            id = "logic-shape-$a-$b",
+            category = category,
+            prompt = "${TextVariator(random).askPattern()}?\n${pattern.joinToString(" ")} ?",
+            inputType = AnswerInputType.CHOICE,
+            choices = ensured.mapIndexed { index, label -> TaskChoice(index.toString(), label) },
+            acceptedAnswers = listOf(answer),
+            hint = "Чередование двух фигур",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_PATTERN
+        )
+    }
+
+    private fun growing(shapes: List<String>, random: Random, level: Int): Task {
+        // a | bb | ccc | ? → следующая группа из 4, первая фигура d
+        val picks = shapes.shuffled(random).take(4)
+        val a = picks[0]
+        val b = picks[1]
+        val c = picks[2]
+        val d = picks[3]
+        val pattern = listOf(a, b, b, c, c, c)
+        val answer = d
+        val options = shapes.shuffled(random).take(4)
+        val ensured = if (answer in options) options else (options.dropLast(1) + answer).shuffled(random)
+        return Task(
+            id = "logic-grow-$a-$b-$c-$d",
+            category = category,
+            prompt = "${TextVariator(random).askPattern()}?\n${pattern.joinToString(" ")} ?",
+            inputType = AnswerInputType.CHOICE,
+            choices = ensured.mapIndexed { index, label -> TaskChoice(index.toString(), label) },
+            acceptedAnswers = listOf(answer),
+            hint = "Группы растут: 1, 2, 3 — дальше новая фигура (начало группы из 4)",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_PATTERN
+        )
+    }
+
+    private fun triple(shapes: List<String>, random: Random, level: Int): Task {
+        // a, b, c, a, b, ?
+        val trio = shapes.shuffled(random).take(3)
+        val (a, b, c) = trio
+        val pattern = listOf(a, b, c, a, b)
+        val answer = c
+        val options = shapes.shuffled(random).take(4)
+        val ensured = if (answer in options) options else (options.dropLast(1) + answer).shuffled(random)
+        return Task(
+            id = "logic-tri-$a-$b-$c",
+            category = category,
+            prompt = "${TextVariator(random).askPattern()}?\n${pattern.joinToString(" ")} ?",
+            inputType = AnswerInputType.CHOICE,
+            choices = ensured.mapIndexed { index, label -> TaskChoice(index.toString(), label) },
+            acceptedAnswers = listOf(answer),
+            hint = "Паттерн из трёх фигур повторяется",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_PATTERN
+        )
+    }
+
+    private fun wordProblem(level: Int, random: Random): Task {
+        return when (random.nextInt(if (level <= 4) 3 else 5)) {
+            0 -> compareProblem(level, random)
+            1 -> remainingProblem(level, random)
+            2 -> sumColors(level, random)
+            3 -> ageOrder(level, random)
+            else -> countProblem(level, random)
+        }
+    }
+
+    private fun compareProblem(level: Int, random: Random): Task {
+        val n1 = names.random(random)
+        val n2 = names.filter { it != n1 }.random(random)
+        val item = items.random(random)
+        val a = random.nextInt(3, 15)
+        val delta = random.nextInt(1, 6)
+        val b = a + delta
+        return Task(
+            id = "logic-cmpw-$n1-$a-$b-$item",
+            category = category,
+            prompt = "У $n1 $a $item, у $n2 на $delta больше. Сколько $item у $n2?",
+            inputType = AnswerInputType.NUMBER,
+            acceptedAnswers = listOf(b.toString()),
+            hint = "Прибавь разницу к числу $n1",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_WORD
+        )
+    }
+
+    private fun remainingProblem(level: Int, random: Random): Task {
+        val n1 = names.random(random)
+        val n2 = names.filter { it != n1 }.random(random)
+        val item = items.random(random)
+        val a = random.nextInt(8, 30)
+        val gave = random.nextInt(1, a)
+        return Task(
+            id = "logic-rem-$n1-$a-$gave-$item",
+            category = category,
+            prompt = "У $n1 было $a $item. Он отдал $gave $item другу $n2. Сколько $item осталось у $n1?",
+            inputType = AnswerInputType.NUMBER,
+            acceptedAnswers = listOf((a - gave).toString()),
+            hint = "Отними отданное от начального количества",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_WORD
+        )
+    }
+
+    private fun sumColors(level: Int, random: Random): Task {
+        val a = random.nextInt(2, 15)
+        val b = random.nextInt(2, 15)
+        val c = if (level <= 4) 0 else random.nextInt(1, 10)
+        val total = a + b + c
+        val colors = if (c > 0) "красных, $b синих и $c зелёных" else "красных и $b синих"
+        return Task(
+            id = "logic-col-$a-$b-$c",
+            category = category,
+            prompt = "В коробке $a $colors шаров. Сколько всего шаров в коробке?",
+            inputType = AnswerInputType.NUMBER,
+            acceptedAnswers = listOf(total.toString()),
+            hint = "Сложи шары всех цветов",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_WORD
+        )
+    }
+
+    private fun ageOrder(level: Int, random: Random): Task {
+        val n1 = names.random(random)
+        val rest = names.filter { it != n1 }.shuffled(random)
+        val n2 = rest[0]
+        val n3 = rest[1]
+        return Task(
+            id = "logic-age-$n1-$n2-$n3",
+            category = category,
+            prompt = "$n1 старше $n2, а $n2 старше $n3. Кто самый старший?",
+            inputType = AnswerInputType.CHOICE,
+            choices = listOf(n1, n2, n3).mapIndexed { index, label ->
+                TaskChoice(index.toString(), label)
+            },
+            acceptedAnswers = listOf(n1),
+            hint = "Сравни цепочку: кто старше всех?",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_WORD
+        )
+    }
+
+    private fun countProblem(level: Int, random: Random): Task {
+        val a = random.nextInt(3, 15)
+        val came = random.nextInt(1, 8)
+        val left = random.nextInt(1, 8)
+        val total = a + came - left
+        return Task(
+            id = "logic-cnt-$a-$came-$left",
+            category = category,
+            prompt = "На дереве сидело $a птиц. Прилетело ещё $came, потом улетели $left. Сколько птиц стало?",
+            inputType = AnswerInputType.NUMBER,
+            acceptedAnswers = listOf(total.toString()),
+            hint = "Сначала прибавь прилетевших, потом вычти улетевших",
+            difficultyLevel = level,
+            skillTag = SkillTag.LOGIC_WORD
+        )
+    }
+}

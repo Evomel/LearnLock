@@ -1,0 +1,122 @@
+package com.learnlock.app.ui.viewmodel
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.learnlock.app.data.ChildProfileEntity
+import com.learnlock.app.data.LearnLockRepository
+import com.learnlock.taskengine.Task
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+data class LockUiState(
+    val loading: Boolean = true,
+    val profile: ChildProfileEntity = ChildProfileEntity(),
+    val task: Task? = null,
+    val feedback: String? = null,
+    val hintVisible: Boolean = false,
+    val hintUsed: Boolean = false,
+    val cooldownSeconds: Int = 0,
+    val showParentPin: Boolean = false,
+    val unlocked: Boolean = false
+)
+
+class LockViewModel(
+    private val repository: LearnLockRepository
+) : ViewModel() {
+    var uiState by mutableStateOf(LockUiState())
+        private set
+
+    fun load(forcePreview: Boolean = false) {
+        viewModelScope.launch {
+            val profile = repository.getProfileOrDefault()
+            // Preview from home always shows a task, even if a session is active.
+            if (!forcePreview && repository.isSessionActive()) {
+                uiState = uiState.copy(loading = false, unlocked = true, profile = profile)
+                return@launch
+            }
+            if (forcePreview) {
+                repository.endSessionNow()
+            }
+            val task = repository.nextTask()
+            uiState = uiState.copy(
+                loading = false,
+                unlocked = false,
+                profile = profile,
+                task = task,
+                feedback = if (forcePreview) "Режим проверки задачи" else null
+            )
+        }
+    }
+
+    fun useHint() {
+        val task = uiState.task ?: return
+        if (!uiState.profile.hintsEnabled || uiState.hintUsed) return
+        uiState = uiState.copy(
+            hintUsed = true,
+            hintVisible = true,
+            feedback = task.hint ?: "Подумай ещё"
+        )
+    }
+
+    fun submitAnswer(raw: String) {
+        val task = uiState.task ?: return
+        if (uiState.cooldownSeconds > 0 || uiState.unlocked) return
+        viewModelScope.launch {
+            if (task.matches(raw)) {
+                repository.onCorrectAnswer(task, uiState.hintUsed)
+                uiState = uiState.copy(
+                    unlocked = true,
+                    feedback = "Отлично! Телефон открыт на ${uiState.profile.sessionMinutes} мин."
+                )
+            } else {
+                repository.onWrongAnswer(task, uiState.hintUsed)
+                uiState = uiState.copy(feedback = "Неверно. Попробуй ещё раз.")
+                for (sec in 2 downTo 1) {
+                    uiState = uiState.copy(cooldownSeconds = sec)
+                    delay(1000)
+                }
+                val refreshed = repository.nextTask()
+                uiState = uiState.copy(
+                    task = refreshed,
+                    hintVisible = false,
+                    cooldownSeconds = 0
+                )
+            }
+        }
+    }
+
+    fun parentUnlock(pin: String) {
+        viewModelScope.launch {
+            val ok = repository.unlockWithParentPin(pin)
+            uiState = if (ok) {
+                uiState.copy(
+                    unlocked = true,
+                    feedback = "Разблокировано родителем",
+                    showParentPin = false
+                )
+            } else {
+                uiState.copy(feedback = "Неверный PIN")
+            }
+        }
+    }
+
+    fun toggleParentPin(show: Boolean) {
+        uiState = uiState.copy(showParentPin = show)
+    }
+}
+
+class LockViewModelFactory(
+    private val repository: LearnLockRepository
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(LockViewModel::class.java)) {
+            return LockViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel ${modelClass.name}")
+    }
+}

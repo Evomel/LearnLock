@@ -1,0 +1,16 @@
+# Шаблоны для логических задач
+# Формат: type|template|hint|pattern
+
+sequence_number|Продолжи числовую последовательность: {numbers}. Какое число дальше?|Посмотри на разность между числами|arithmetic|step={step}
+sequence_number|В последовательности {numbers} пропущено число. Какое? |Найди закономерность|arithmetic
+sequence_number|Какое число пропущено в ряду: {numbers} ? |Считай шаг|arithmetic
+sequence_shape|Какой фигуры не хватает в ряду? {shapes} ? |Посмотри на чередование форм|alternating
+sequence_ab|Продолжи ряд: {first} {second} {first} {second} ? |Паттерн из двух элементов|ab
+logic_word|{name} старше {name2}. {name2} старше {name3}. Кто старший?|Сравни возраст|age_order
+logic_word|У {name} есть {item1}, у {name2} есть {item2}. У кого больше?|Сравни количества|comparison
+logic_word|{name} пошёл в {place1}, {name2} пошёл в {place2}. Где они встретились?|Логика мест|meeting
+logic_word|На дереве {a} птиц, прилетело ещё {b}. Сколько птиц стало? Потом улетели {c}|Считай по шагам|counting
+logic_word|В коробке {a} красных и {b} синих шаров. Сколько всего шаров?|Сложи цвета|sum_colors
+logic_word|У {name} {a} конфет, он отдал {b} {name2}. Сколько осталось?|Отними отданные|remaining
+logic_word|{name} читает книгу, {name2} рисует. {name3} играет. Кто занимается чтением?|Найди нужное занятие|occupation
+logic_word|Если {name} выше {name2}, а {name2} выше {name3}, то кто выше всех?|Сравни цепочку|taller

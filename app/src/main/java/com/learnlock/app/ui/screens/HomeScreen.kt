@@ -1,0 +1,143 @@
+package com.learnlock.app.ui.screens
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.learnlock.app.ui.components.LlBackground
+import com.learnlock.app.ui.components.LlGhostButton
+import com.learnlock.app.ui.components.LlPanel
+import com.learnlock.app.ui.components.LlPrimaryButton
+import com.learnlock.app.ui.theme.LlColors
+import com.learnlock.app.ui.viewmodel.MainUiState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+@Composable
+fun HomeScreen(
+    state: MainUiState,
+    onOpenOnboarding: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenStats: () -> Unit,
+    onOpenPermissions: () -> Unit,
+    onToggleLock: (Boolean) -> Unit,
+    onPreviewLock: () -> Unit,
+    onEndSession: () -> Unit
+) {
+    val sessionActive = state.session.unlockedUntilMillis > System.currentTimeMillis()
+    val untilText = if (sessionActive) {
+        SimpleDateFormat("HH:mm", Locale.getDefault())
+            .format(Date(state.session.unlockedUntilMillis))
+    } else {
+        "—"
+    }
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+
+    LlBackground {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn() + slideInVertically { it / 8 }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    "LearnLock",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = LlColors.MintDeep
+                )
+                Text(
+                    "Реши — и телефон твой",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = LlColors.TextPrimary
+                )
+                Text(
+                    "${state.profile.displayName} · ${state.profile.ageYears} лет · сессия ${state.profile.sessionMinutes} мин",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LlColors.TextSecondary
+                )
+
+                LlPanel {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Блокировка после сна\n" +
+                                if (state.profile.lockEnabled) "Включена" else "Выключена",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        )
+                        Switch(
+                            checked = state.profile.lockEnabled,
+                            onCheckedChange = onToggleLock,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = LlColors.MintDeep,
+                                checkedThumbColor = LlColors.SurfaceElevated
+                            )
+                        )
+                    }
+                    Text("Сессия до: $untilText", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Ошибок подряд: ${state.session.consecutiveWrong}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LlColors.TextSecondary
+                    )
+                }
+
+                if (!state.hasParentPin) {
+                    LlPrimaryButton("Начать настройку", onClick = onOpenOnboarding, coral = true)
+                } else {
+                    LlPrimaryButton("Настройки", onClick = onOpenSettings)
+                }
+
+                LlGhostButton("Показать экран задачи", onClick = onPreviewLock)
+                LlGhostButton("Статистика за 7 дней", onClick = onOpenStats)
+                LlGhostButton("Права Android", onClick = onOpenPermissions)
+                if (sessionActive) {
+                    LlGhostButton("Завершить сессию", onClick = onEndSession)
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Родительский PIN всегда может снять блокировку.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LlColors.TextSecondary
+                )
+            }
+        }
+    }
+}

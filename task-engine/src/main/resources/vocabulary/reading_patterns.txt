@@ -1,0 +1,12 @@
+# Шаблоны для заданий на чтение
+# Формат: type|template|hint|correctIdx
+# Переменные: {word} {words} {category} {odd} {letter}
+
+odd_one_out|Какое слово лишнее: {words}?|Три слова из одной категории, одно — нет|{correct_idx}
+odd_one_out|Найди лишнее слово: {words}|Подумай, к какой категории относятся слова|{correct_idx}
+odd_one_out|В списке есть одно слово, которое не подходит: {words}|Найди его|{correct_idx}
+letter_task|Какое слово на букву {letter}?|Подбери слово из категории|{correct_idx}
+letter_task|Выбери слово, начинающееся на {letter}: {words}|Посмотри на первую букву|{correct_idx}
+letter_task|Какое из слов начинается на букву {letter}: {words}?|Первая буква — {letter}|{correct_idx}
+synonym|Какое слово является синонимом слова "{word}"? |Слово с похожим значением|{correct_idx}
+synonym|Что значит слово "{word}"? Выбери правильный ответ: {words}|Подумай о значении|{correct_idx}

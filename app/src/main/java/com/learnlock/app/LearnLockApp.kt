@@ -1,0 +1,34 @@
+package com.learnlock.app
+
+import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import com.learnlock.app.data.AppContainer
+import com.learnlock.app.data.DefaultAppContainer
+
+class LearnLockApp : Application() {
+    lateinit var container: AppContainer
+        private set
+
+    override fun onCreate() {
+        super.onCreate()
+        container = DefaultAppContainer(this)
+        createNotificationChannel()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val channel = NotificationChannel(
+            LOCK_CHANNEL_ID,
+            getString(R.string.lock_notification_channel),
+            NotificationManager.IMPORTANCE_LOW
+        )
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
+    }
+
+    companion object {
+        const val LOCK_CHANNEL_ID = "learnlock_session"
+    }
+}
