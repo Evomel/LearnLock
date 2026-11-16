@@ -39,7 +39,10 @@ object PinHasher {
         return constantTimeEquals(candidate, entity.pinHash)
     }
 
-    /** Сравнение строк за константное время (защита от timing attacks). */
+    /**
+     * Сравнение строк за константное время (защита от timing attacks):
+     * не раскрывает через время выполнения, сколько символов совпало.
+     */
     private fun constantTimeEquals(a: String, b: String): Boolean {
         val left = a.toByteArray()
         val right = b.toByteArray()
