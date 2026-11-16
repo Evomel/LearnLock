@@ -27,7 +27,8 @@ object PinHasher {
         val candidate = hash(pin, entity.salt)
         return constantTimeEquals(candidate, entity.pinHash)
     }
-
+//  функция безопасно проверяет равенство двух строк (обычно — пароля или токена),
+//  не раскрывая через время выполнения, сколько символов совпало
     private fun constantTimeEquals(a: String, b: String): Boolean {
         val left = a.toByteArray()
         val right = b.toByteArray()
