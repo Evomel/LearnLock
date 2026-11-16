@@ -2,7 +2,10 @@ package com.learnlock.taskengine
 
 import kotlin.random.Random
 
-/** Собирает задачу из [TemplateEntry]: подставляет переменные и считает ответ. */
+/**
+ * Сборка математической [Task] из [TemplateEntry]: случайные операнды,
+ * подстановка в шаблон и расчёт принимаемого ответа по типу навыка.
+ */
 class MathTemplateGenerator {
     private val namesNom = listOf(
         "Миша", "Петя", "Аня", "Игорь", "Серёжа", "Оля", "Катя", "Дима", "Лена", "Витя", "Саша", "Настя"
@@ -14,6 +17,12 @@ class MathTemplateGenerator {
         "яблок", "груш", "конфет", "карандашей", "наклеек", "шаров", "машинок", "книг", "мячей", "печений"
     )
 
+    /**
+     * Генерирует задачу по записи каталога и профилю сложности.
+     *
+     * Диапазоны `a`, `b`, `c` и контекстные переменные подбираются по [DifficultyProfile.level]
+     * и [TemplateEntry.skillTag].
+     */
     fun generate(entry: TemplateEntry, profile: DifficultyProfile, random: Random): Task {
         val level = profile.level()
         val bound = when {
@@ -88,6 +97,7 @@ class MathTemplateGenerator {
         )
     }
 
+    /** Маршрутизация к типу задачи (число, сравнение, смешанная) по [entry.skillTag]. */
     private fun buildTask(
         entry: TemplateEntry,
         prompt: String,
@@ -111,6 +121,10 @@ class MathTemplateGenerator {
         }
     }
 
+    /**
+     * Задание на сравнение: кто больше, какое число больше или знак неравенства.
+     * Ветвление по ключевым фразам в [lower].
+     */
     private fun compareTask(
         entry: TemplateEntry,
         prompt: String,
@@ -177,6 +191,9 @@ class MathTemplateGenerator {
         )
     }
 
+    /**
+     * Смешанные контекстные задачи: «хватит ли денег» или числовой ответ по эвристикам текста.
+     */
     private fun mixTask(
         entry: TemplateEntry,
         prompt: String,
@@ -212,6 +229,7 @@ class MathTemplateGenerator {
         return numberTask(entry, prompt, result, level)
     }
 
+    /** Задача с числовым вводом и единственным целочисленным ответом. */
     private fun numberTask(entry: TemplateEntry, prompt: String, answer: Int, level: Int): Task =
         Task(
             id = "math-${entry.skillTag.name.lowercase()}-$answer-${prompt.hashCode()}",

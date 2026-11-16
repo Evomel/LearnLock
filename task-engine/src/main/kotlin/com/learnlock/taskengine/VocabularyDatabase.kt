@@ -1,30 +1,47 @@
 package com.learnlock.taskengine
 
 /**
- * Загружает словарь из ресурсов vocabulary/words_{level}.txt.
- * Формат строки: category|word1|word2|...
- * Загружается лениво и кэшируется — память < 1 МБ.
+ * Загружает тематический словарь из ресурсов `vocabulary/words_{level}.txt`.
+ *
+ * Формат строки: `category|word1|word2|...`
+ * Данные кэшируются по уровню — типичный объём в памяти менее 1 МБ.
  */
 class VocabularyDatabase {
 
+    /** Уровень лексической сложности файла словаря. */
     enum class Level { EASY, MEDIUM, HARD }
 
     private val cache = mutableMapOf<Level, Map<String, List<String>>>()
 
+    /**
+     * Слова категории для уровня; отсутствующая категория — пустой список.
+     *
+     * @param level уровень словаря
+     * @param category ключ категории (например, `animal`)
+     */
     fun words(level: Level, category: String): List<String> =
         data(level)[category].orEmpty()
 
+    /** Множество имён категорий, присутствующих в файле уровня. */
     fun categories(level: Level): Set<String> = data(level).keys
 
+    /**
+     * Случайное слово из категории или `null`, если список пуст.
+     */
     fun randomWord(level: Level, category: String, random: kotlin.random.Random): String? =
         words(level, category).randomOrNull(random)
 
+    /**
+     * До [count] различных слов из категории (перемешивание без повторов в выборке).
+     */
     fun pickDistinct(level: Level, category: String, count: Int, random: kotlin.random.Random): List<String> =
         words(level, category).shuffled(random).take(count)
 
+    /** Ленивая загрузка и кэширование карты категория → слова. */
     private fun data(level: Level): Map<String, List<String>> =
         cache.getOrPut(level) { load(level) }
 
+    /** Парсинг текстового ресурса уровня в карту категорий. */
     private fun load(level: Level): Map<String, List<String>> {
         val path = "/vocabulary/words_${level.name.lowercase()}.txt"
         val stream = VocabularyDatabase::class.java.getResourceAsStream(path)

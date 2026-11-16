@@ -7,7 +7,13 @@ import android.os.Build
 import com.learnlock.app.data.AppContainer
 import com.learnlock.app.data.DefaultAppContainer
 
+/**
+ * Точка входа приложения.
+ * Держит [AppContainer] с зависимостями (БД, репозиторий, движок задач)
+ * и канал уведомлений для foreground-сервиса блокировки.
+ */
 class LearnLockApp : Application() {
+    /** DI-контейнер, доступен из Activity/Service через `application as LearnLockApp`. */
     lateinit var container: AppContainer
         private set
 
@@ -17,6 +23,7 @@ class LearnLockApp : Application() {
         createNotificationChannel()
     }
 
+    /** Канал для ongoing-уведомления [com.learnlock.app.lock.LockMonitorService]. */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val channel = NotificationChannel(

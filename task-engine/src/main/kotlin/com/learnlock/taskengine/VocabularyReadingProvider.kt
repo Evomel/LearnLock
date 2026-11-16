@@ -3,8 +3,10 @@ package com.learnlock.taskengine
 import kotlin.random.Random
 
 /**
- * Чтение: пропущенная буква (SchoolVocabulary), динамический
- * «лишнее слово» из категорий VocabularyDatabase, синонимы.
+ * Генератор задач [TaskCategory.READING]:
+ * пропущенная буква ([SchoolVocabulary]), «лишнее слово» из [VocabularyDatabase], синонимы.
+ *
+ * Использует [RepeatAvoidance] для снижения повторяющихся формулировок.
  */
 class VocabularyReadingProvider(
     private val vocab: VocabularyDatabase = VocabularyDatabase(),
@@ -60,6 +62,7 @@ class VocabularyReadingProvider(
         return task
     }
 
+    /** Одна генерация без ретраев по буферу повторов. */
     private fun generateOnce(
         profile: DifficultyProfile,
         random: Random,
@@ -77,12 +80,14 @@ class VocabularyReadingProvider(
         } else byLevel(profile, level, random)
     }
 
+    /** Выбор типа задания по уровню, если навык не зафиксирован. */
     private fun byLevel(profile: DifficultyProfile, level: Int, random: Random): Task = when {
         level <= 3 -> missingLetter(profile, level, random)
         level <= 6 -> oddOne(level, random)
         else -> synonym(level, random)
     }
 
+    /** Задание: угадать пропущенную букву в словарном слове. */
     private fun missingLetter(profile: DifficultyProfile, level: Int, random: Random): Task {
         val pool = SchoolVocabulary.wordItemsForAge(profile.ageYears)
             .ifEmpty { SchoolVocabulary.wordItemsForAge(8) }
@@ -110,12 +115,16 @@ class VocabularyReadingProvider(
         )
     }
 
+    /** Соответствие числового уровня файлу словаря [VocabularyDatabase]. */
     private fun levelForVocab(level: Int): VocabularyDatabase.Level = when {
         level <= 3 -> VocabularyDatabase.Level.EASY
         level <= 6 -> VocabularyDatabase.Level.MEDIUM
         else -> VocabularyDatabase.Level.HARD
     }
 
+    /**
+     * «Лишнее слово»: три слова одной категории из БД и одно из другой.
+     */
     private fun oddOne(level: Int, random: Random): Task {
         val vLevel = levelForVocab(level)
         val cats = vocab.categories(vLevel).toList()
@@ -141,6 +150,7 @@ class VocabularyReadingProvider(
         )
     }
 
+    /** Резервный набор «лишнее слово», если словарь недоступен или пуст. */
     private fun oddOneFallback(level: Int, random: Random): Task {
         val groups = listOf(
             Triple(listOf("яблоко", "ягода", "малина"), "топор", "Три слова — плоды/ягоды"),
@@ -164,6 +174,7 @@ class VocabularyReadingProvider(
         )
     }
 
+    /** Выбор синонима из заранее заданной тройки слов. */
     private fun synonym(level: Int, random: Random): Task {
         val (word, options, answer) = synonyms.random(random)
         return Task(

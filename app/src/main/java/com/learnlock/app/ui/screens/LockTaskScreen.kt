@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.learnlock.app.ui.components.LlBackground
 import com.learnlock.app.ui.components.LlBrandMark
 import com.learnlock.app.ui.components.LlChoiceTile
@@ -45,6 +46,10 @@ import com.learnlock.app.ui.viewmodel.LockUiState
 import com.learnlock.taskengine.AnswerInputType
 import kotlinx.coroutines.delay
 
+/**
+ * UI экрана учебной задачи поверх приложений.
+ * Поддерживает NUMBER/TEXT/CHOICE, подсказку и ввод родительского PIN.
+ */
 @Composable
 fun LockTaskScreen(
     state: LockUiState,
@@ -121,9 +126,13 @@ fun LockTaskScreen(
                             )
                             Text(
                                 task.prompt,
-                                style = MaterialTheme.typography.headlineMedium,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontSize = 17.sp,
+                                    lineHeight = 24.sp
+                                ),
                                 color = LlColors.TextPrimary,
                                 textAlign = TextAlign.Center,
+                                softWrap = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
 

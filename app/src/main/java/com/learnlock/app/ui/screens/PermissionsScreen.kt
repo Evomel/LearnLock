@@ -37,6 +37,10 @@ import com.learnlock.app.ui.components.LlPanel
 import com.learnlock.app.ui.components.LlPrimaryButton
 import com.learnlock.app.ui.theme.LlColors
 
+/**
+ * Чеклист системных прав: overlay, Accessibility, игнор оптимизации батареи.
+ * Статусы обновляются при возврате на экран (Lifecycle.ON_RESUME).
+ */
 @Composable
 fun PermissionsScreen(onBack: () -> Unit) {
     val context = LocalContext.current

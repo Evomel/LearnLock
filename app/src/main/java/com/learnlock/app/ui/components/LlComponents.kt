@@ -42,6 +42,11 @@ import com.learnlock.app.ui.theme.LlColors
 private val CardShape = RoundedCornerShape(24.dp)
 private val ButtonShape = RoundedCornerShape(18.dp)
 
+/**
+ * Переиспользуемые Compose-компоненты tween-UI LearnLock (мята/коралл, Manrope).
+ */
+
+/** Фоновый градиент; [energetic] — тёмный вариант для экрана задачи. */
 @Composable
 fun LlBackground(
     modifier: Modifier = Modifier,
@@ -85,6 +90,7 @@ fun LlBackground(
     }
 }
 
+/** Карточка-панель с полупрозрачным фоном. */
 @Composable
 fun LlPanel(
     modifier: Modifier = Modifier,
@@ -103,6 +109,7 @@ fun LlPanel(
     }
 }
 
+/** Основная кнопка на всю ширину; [coral] — акцент «действие». */
 @Composable
 fun LlPrimaryButton(
     text: String,
@@ -130,6 +137,7 @@ fun LlPrimaryButton(
     }
 }
 
+/** Вторичная outlined-кнопка. */
 @Composable
 fun LlGhostButton(
     text: String,
@@ -152,6 +160,7 @@ fun LlGhostButton(
     }
 }
 
+/** Плитка варианта ответа (CHOICE) на экране задачи. */
 @Composable
 fun LlChoiceTile(
     label: String,
@@ -192,6 +201,7 @@ fun LlChoiceTile(
     }
 }
 
+/** Логотип/название LearnLock с опциональным подзаголовком. */
 @Composable
 fun LlBrandMark(
     light: Boolean = true,

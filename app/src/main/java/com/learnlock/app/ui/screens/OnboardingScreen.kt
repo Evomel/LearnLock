@@ -16,6 +16,7 @@ import com.learnlock.app.ui.components.LlPanel
 import com.learnlock.app.ui.components.LlPrimaryButton
 import com.learnlock.app.ui.theme.LlColors
 
+/** Короткий онбординг: объяснение продукта → PIN → права Android. */
 @Composable
 fun OnboardingScreen(
     hasPin: Boolean,

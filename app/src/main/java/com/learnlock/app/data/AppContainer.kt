@@ -3,6 +3,10 @@ package com.learnlock.app.data
 import android.content.Context
 import com.learnlock.taskengine.TaskEngine
 
+/**
+ * Контракт зависимостей приложения.
+ * Позволяет подменять реализации в тестах.
+ */
 interface AppContainer {
     val database: AppDatabase
     val sessionStore: SessionStore
@@ -10,6 +14,7 @@ interface AppContainer {
     val taskEngine: TaskEngine
 }
 
+/** Прод-сборка зависимостей: Room + DataStore + [TaskEngine]. */
 class DefaultAppContainer(context: Context) : AppContainer {
     override val database: AppDatabase = AppDatabase.create(context.applicationContext)
     override val sessionStore: SessionStore = SessionStore(context.applicationContext)

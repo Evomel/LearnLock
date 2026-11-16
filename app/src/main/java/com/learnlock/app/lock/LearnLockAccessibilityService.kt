@@ -9,8 +9,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Lightweight helper: if lock should be active and another app comes to foreground,
- * re-present the task screen. Does not read window content.
+ * Лёгкий помощник блокировки: если сессия истекла и на передний план
+ * вышло чужое приложение — снова показать экран задачи.
+ *
+ * Контент окон не читается (`canRetrieveWindowContent=false` в XML).
+ * Не заменяет таймер: пока пользователь остаётся в одном приложении,
+ * событие смены окна не придёт.
  */
 class LearnLockAccessibilityService : AccessibilityService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -18,6 +22,7 @@ class LearnLockAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
+        // Игнорируем собственные окна LearnLock, чтобы не зациклиться.
         if (pkg == packageName) return
         val app = application as? LearnLockApp ?: return
         scope.launch {

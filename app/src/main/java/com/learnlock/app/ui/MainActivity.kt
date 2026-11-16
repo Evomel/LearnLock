@@ -25,6 +25,11 @@ import com.learnlock.app.ui.theme.LearnLockTheme
 import com.learnlock.app.ui.viewmodel.MainViewModel
 import com.learnlock.app.ui.viewmodel.MainViewModelFactory
 
+/**
+ * Главная Activity приложения: навигация по домашнему экрану,
+ * онбордингу, настройкам, правам и статистике.
+ * Экран задачи живёт в отдельной [com.learnlock.app.lock.LockActivity].
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +48,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** Граф навигации Compose для родительского/настроечного UI. */
 @Composable
 private fun LearnLockNav(app: LearnLockApp) {
     val navController = rememberNavController()

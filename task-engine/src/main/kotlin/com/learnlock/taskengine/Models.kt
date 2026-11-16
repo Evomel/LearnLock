@@ -1,11 +1,15 @@
 package com.learnlock.taskengine
 
+/** Категория образовательной задачи. */
 enum class TaskCategory {
     MATH,
     READING,
     LOGIC
 }
 
+/**
+ * Конкретный навык внутри категории (тип задания для статистики и шаблонов).
+ */
 enum class SkillTag {
     MATH_ADD,
     MATH_SUB,
@@ -19,6 +23,7 @@ enum class SkillTag {
     LOGIC_PATTERN,
     LOGIC_WORD;
 
+    /** Категория, к которой относится навык. */
     val category: TaskCategory
         get() = when (this) {
             MATH_ADD, MATH_SUB, MATH_MUL, MATH_COMPARE, MATH_MIX -> TaskCategory.MATH
@@ -26,6 +31,7 @@ enum class SkillTag {
             LOGIC_SEQ, LOGIC_PATTERN, LOGIC_WORD -> TaskCategory.LOGIC
         }
 
+    /** Локализованное краткое название навыка для UI. */
     fun displayNameRu(): String = when (this) {
         MATH_ADD -> "Сложение"
         MATH_SUB -> "Вычитание"
@@ -41,17 +47,29 @@ enum class SkillTag {
     }
 }
 
+/** Способ ввода ответа пользователем. */
 enum class AnswerInputType {
     NUMBER,
     CHOICE,
     TEXT
 }
 
+/**
+ * Вариант ответа для заданий с выбором.
+ *
+ * @property id стабильный идентификатор варианта
+ * @property label текст на кнопке/в списке
+ */
 data class TaskChoice(
     val id: String,
     val label: String
 )
 
+/**
+ * Одна сгенерированная задача.
+ *
+ * @property acceptedAnswers допустимые ответы после нормализации; для NUMBER/TEXT — числа/строки
+ */
 data class Task(
     val id: String,
     val category: TaskCategory,
@@ -63,29 +81,55 @@ data class Task(
     val difficultyLevel: Int,
     val skillTag: SkillTag
 ) {
+    /**
+     * Проверяет ответ пользователя без учёта регистра и с заменой запятой на точку.
+     *
+     * @param rawAnswer введённый или выбранный ответ
+     * @return `true`, если ответ совпадает с одним из [acceptedAnswers] после нормализации
+     */
     fun matches(rawAnswer: String): Boolean {
         val normalized = normalize(rawAnswer)
         return acceptedAnswers.any { normalize(it) == normalized }
     }
 
     companion object {
+        /** Общая нормализация строковых ответов для сравнения. */
         fun normalize(value: String): String =
             value.trim().lowercase().replace(',', '.')
     }
 }
 
+/**
+ * Одна попытка решения задачи для агрегации статистики.
+ *
+ * @property correct признак верного ответа
+ */
 data class AttemptRecord(
     val skillTag: SkillTag,
     val category: TaskCategory,
     val correct: Boolean
 )
 
+/**
+ * Агрегированная статистика ученика по попыткам.
+ *
+ * @property overallAccuracy доля верных ответов по всем попыткам (0..1)
+ * @property categoryAccuracy точность по категориям
+ * @property skillAccuracy точность по навыкам
+ * @property skillAttempts число попыток по каждому навыку
+ */
 data class LearnerStats(
     val overallAccuracy: Double = 0.7,
     val categoryAccuracy: Map<TaskCategory, Double> = emptyMap(),
     val skillAccuracy: Map<SkillTag, Double> = emptyMap(),
     val skillAttempts: Map<SkillTag, Int> = emptyMap()
 ) {
+    /**
+     * Навыки с достаточным числом попыток и точностью ниже порога.
+     *
+     * @param minAttempts минимум попыток для учёта навыка
+     * @param threshold верхняя граница «слабости» по точности
+     */
     fun weakSkills(minAttempts: Int = 3, threshold: Double = 0.55): List<SkillTag> =
         skillAccuracy
             .filter { (skill, acc) -> (skillAttempts[skill] ?: 0) >= minAttempts && acc < threshold }
@@ -93,6 +137,9 @@ data class LearnerStats(
             .sortedBy { it.value }
             .map { it.key }
 
+    /**
+     * Навыки с достаточным числом попыток и точностью не ниже порога.
+     */
     fun strongSkills(minAttempts: Int = 3, threshold: Double = 0.85): List<SkillTag> =
         skillAccuracy
             .filter { (skill, acc) -> (skillAttempts[skill] ?: 0) >= minAttempts && acc >= threshold }
@@ -101,6 +148,11 @@ data class LearnerStats(
             .map { it.key }
 
     companion object {
+        /**
+         * Собирает [LearnerStats] из списка попыток.
+         *
+         * @param attempts история попыток; пустой список даёт значения по умолчанию
+         */
         fun fromAttempts(attempts: List<AttemptRecord>): LearnerStats {
             if (attempts.isEmpty()) return LearnerStats()
             val overall = attempts.count { it.correct }.toDouble() / attempts.size
@@ -122,6 +174,11 @@ data class LearnerStats(
     }
 }
 
+/**
+ * Входные параметры для выдачи одной задачи.
+ *
+ * @property learnerStats опциональная статистика для [AdaptiveSelector]; `null` — без адаптации
+ */
 data class TaskRequest(
     val ageYears: Int,
     val difficultyOffset: Int = 0,
@@ -138,13 +195,23 @@ data class TaskRequest(
     val learnerStats: LearnerStats? = null
 )
 
+/**
+ * Параметры расчёта уровня сложности (полоса 1..10).
+ *
+ * @property offset ручное смещение от базового уровня по возрасту
+ * @property forceEasier при `true` сдвигает уровень вниз
+ */
 data class DifficultyProfile(
     val ageYears: Int,
     val offset: Int,
     val forceEasier: Boolean,
     val recentAccuracy: Double
 ) {
-    /** Effective difficulty band roughly 1..10 */
+    /**
+     * Эффективный уровень сложности с учётом возраста, точности и флагов.
+     *
+     * @return целое значение в диапазоне 1..10
+     */
     fun level(): Int {
         val base = when {
             ageYears <= 6 -> 1

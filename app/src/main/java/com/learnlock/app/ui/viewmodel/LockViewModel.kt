@@ -12,6 +12,7 @@ import com.learnlock.taskengine.Task
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** Состояние экрана задачи ([com.learnlock.app.ui.screens.LockTaskScreen]). */
 data class LockUiState(
     val loading: Boolean = true,
     val profile: ChildProfileEntity = ChildProfileEntity(),
@@ -19,21 +20,30 @@ data class LockUiState(
     val feedback: String? = null,
     val hintVisible: Boolean = false,
     val hintUsed: Boolean = false,
+    /** Пауза после ошибки, сек. */
     val cooldownSeconds: Int = 0,
     val showParentPin: Boolean = false,
     val unlocked: Boolean = false
 )
 
+/**
+ * ViewModel экрана блокировки: загрузка задачи, проверка ответа,
+ * подсказка и parent unlock.
+ */
 class LockViewModel(
     private val repository: LearnLockRepository
 ) : ViewModel() {
     var uiState by mutableStateOf(LockUiState())
         private set
 
+    /**
+     * Загружает задачу.
+     * @param forcePreview если true — сбрасывает сессию и всегда показывает задачу
+     */
     fun load(forcePreview: Boolean = false) {
         viewModelScope.launch {
             val profile = repository.getProfileOrDefault()
-            // Preview from home always shows a task, even if a session is active.
+            // Preview с главного экрана всегда показывает задачу.
             if (!forcePreview && repository.isSessionActive()) {
                 uiState = uiState.copy(loading = false, unlocked = true, profile = profile)
                 return@launch
@@ -52,6 +62,7 @@ class LockViewModel(
         }
     }
 
+    /** Показывает подсказку один раз за задачу (если разрешено в профиле). */
     fun useHint() {
         val task = uiState.task ?: return
         if (!uiState.profile.hintsEnabled || uiState.hintUsed) return
@@ -62,6 +73,10 @@ class LockViewModel(
         )
     }
 
+    /**
+     * Проверяет ответ. При успехе открывает сессию;
+     * при ошибке — короткий cooldown и новая задача.
+     */
     fun submitAnswer(raw: String) {
         val task = uiState.task ?: return
         if (uiState.cooldownSeconds > 0 || uiState.unlocked) return
@@ -89,6 +104,7 @@ class LockViewModel(
         }
     }
 
+    /** Emergency unlock родительским PIN. */
     fun parentUnlock(pin: String) {
         viewModelScope.launch {
             val ok = repository.unlockWithParentPin(pin)
@@ -109,6 +125,7 @@ class LockViewModel(
     }
 }
 
+/** Фабрика [LockViewModel] с инъекцией репозитория. */
 class LockViewModelFactory(
     private val repository: LearnLockRepository
 ) : ViewModelProvider.Factory {

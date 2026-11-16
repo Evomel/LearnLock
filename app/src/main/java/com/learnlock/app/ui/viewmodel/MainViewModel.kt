@@ -16,6 +16,7 @@ import com.learnlock.app.lock.LockController
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+/** Состояние главного потока: профиль, сессия, статистика, флаг PIN. */
 data class MainUiState(
     val profile: ChildProfileEntity = ChildProfileEntity(),
     val session: SessionState = SessionState(),
@@ -24,6 +25,10 @@ data class MainUiState(
     val bootstrapped: Boolean = false
 )
 
+/**
+ * ViewModel главного Activity: онбординг, настройки, вкл/выкл мониторинга,
+ * preview задачи и завершение сессии.
+ */
 class MainViewModel(
     application: Application,
     private val repository: LearnLockRepository
@@ -31,6 +36,7 @@ class MainViewModel(
     var uiState by mutableStateOf(MainUiState())
         private set
 
+    /** Инициализация дефолтов и подписка на потоки профиля/сессии/статистики. */
     fun bootstrap() {
         viewModelScope.launch {
             repository.ensureDefaults()
@@ -60,6 +66,7 @@ class MainViewModel(
         }
     }
 
+    /** Сохраняет профиль и синхронизирует foreground-мониторинг с [ChildProfileEntity.lockEnabled]. */
     fun saveProfile(profile: ChildProfileEntity) {
         viewModelScope.launch {
             repository.saveProfile(profile)
@@ -75,6 +82,7 @@ class MainViewModel(
         saveProfile(uiState.profile.copy(lockEnabled = enabled))
     }
 
+    /** Открывает LockActivity в режиме проверки UI. */
     fun previewLock() {
         LockController.presentLock(getApplication(), forcePreview = true)
     }

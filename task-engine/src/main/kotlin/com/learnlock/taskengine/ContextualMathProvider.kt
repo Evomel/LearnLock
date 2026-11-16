@@ -3,8 +3,10 @@ package com.learnlock.taskengine
 import kotlin.random.Random
 
 /**
- * Математика из шаблонов [TemplateCatalog] + словарь.
- * Ответ всегда вычисляется детерминированно.
+ * Генератор задач [TaskCategory.MATH]: шаблоны из [TemplateCatalog] и словарь предметов.
+ *
+ * Правильный ответ вычисляется детерминированно в [MathTemplateGenerator].
+ * Повторы похожих условий ограничиваются через [RepeatAvoidance].
  */
 class ContextualMathProvider(
     private val repeatAvoidance: RepeatAvoidance = RepeatAvoidance(),
@@ -27,6 +29,7 @@ class ContextualMathProvider(
         return task
     }
 
+    /** Одна попытка генерации без учёта буфера повторов. */
     private fun generateOnce(
         profile: DifficultyProfile,
         random: Random,
@@ -42,6 +45,9 @@ class ContextualMathProvider(
         return generator.generate(entry, profile, random)
     }
 
+    /**
+     * Выбор математического навыка по уровню сложности, если приоритет не задан.
+     */
     private fun skillByLevel(level: Int, random: Random): SkillTag = when {
         level <= 2 -> SkillTag.MATH_ADD
         level <= 4 -> if (random.nextBoolean()) SkillTag.MATH_SUB else SkillTag.MATH_ADD
@@ -49,6 +55,7 @@ class ContextualMathProvider(
         else -> SkillTag.MATH_MIX
     }
 
+    /** Запасной простой пример на сложение при пустом каталоге шаблонов. */
     private fun fallbackAdd(level: Int, random: Random): Task {
         val a = random.nextInt(1, 10)
         val b = random.nextInt(1, 10)

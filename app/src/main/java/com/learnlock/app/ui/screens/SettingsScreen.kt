@@ -2,9 +2,12 @@ package com.learnlock.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.learnlock.app.data.ChildProfileEntity
 import com.learnlock.app.data.OutsideWindowMode
@@ -38,7 +42,12 @@ import com.learnlock.app.ui.components.LlPrimaryButton
 import com.learnlock.app.ui.theme.LlColors
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Редактирование профиля ребёнка: возраст, сложность, длительность сессии,
+ * окно часов, категории и подсказки.
+ * Чипы на узком экране переносятся через [FlowRow].
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     profile: ChildProfileEntity,
@@ -57,9 +66,10 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(20.dp)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Настройки", style = MaterialTheme.typography.displayMedium, color = LlColors.MintDeep)
 
@@ -69,6 +79,7 @@ fun SettingsScreen(
                     onValueChange = { draft = draft.copy(displayName = it.take(24)) },
                     label = { Text("Имя") },
                     modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = LlColors.MintDeep)
                 )
@@ -85,24 +96,32 @@ fun SettingsScreen(
                 )
 
                 Text("Сложность: ${difficultyLabel(draft.difficultyOffset)}")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     listOf(-1, 0, 1).forEach { offset ->
                         FilterChip(
                             selected = draft.difficultyOffset == offset,
                             onClick = { draft = draft.copy(difficultyOffset = offset) },
-                            label = { Text(difficultyLabel(offset)) },
+                            label = { Text(difficultyLabel(offset), maxLines = 1) },
                             colors = chipColors
                         )
                     }
                 }
 
                 Text("Сессия")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     sessionOptions.forEach { minutes ->
                         FilterChip(
                             selected = draft.sessionMinutes == minutes,
                             onClick = { draft = draft.copy(sessionMinutes = minutes) },
-                            label = { Text("$minutes мин") },
+                            label = { Text("$minutes мин", maxLines = 1) },
                             colors = chipColors
                         )
                     }
@@ -128,13 +147,24 @@ fun SettingsScreen(
                     colors = SliderDefaults.colors(thumbColor = LlColors.Coral, activeTrackColor = LlColors.CoralSoft)
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Вне окна")
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     FilterChip(
                         selected = draft.outsideWindowMode == OutsideWindowMode.NO_TASKS.name,
                         onClick = {
                             draft = draft.copy(outsideWindowMode = OutsideWindowMode.NO_TASKS.name)
                         },
-                        label = { Text("Вне окна: без задач") },
+                        label = {
+                            Text(
+                                "Без задач",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
                         colors = chipColors
                     )
                     FilterChip(
@@ -142,7 +172,13 @@ fun SettingsScreen(
                         onClick = {
                             draft = draft.copy(outsideWindowMode = OutsideWindowMode.HARD_BLOCK.name)
                         },
-                        label = { Text("Полный запрет") },
+                        label = {
+                            Text(
+                                "Полный запрет",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
                         colors = chipColors
                     )
                 }
@@ -178,14 +214,21 @@ fun SettingsScreen(
     }
 }
 
+/** Строка «лейбл + Switch» для включения категории задач / подсказок. */
 @Composable
 private fun CategoryToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(label, style = MaterialTheme.typography.titleMedium)
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         Switch(
             checked = checked,
             onCheckedChange = onChange,

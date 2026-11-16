@@ -37,6 +37,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Главный экран: статус блокировки/сессии и переходы в настройки,
+ * права, статистику и preview задачи.
+ */
 @Composable
 fun HomeScreen(
     state: MainUiState,

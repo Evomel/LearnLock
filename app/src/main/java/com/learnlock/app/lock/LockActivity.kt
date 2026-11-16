@@ -14,6 +14,11 @@ import com.learnlock.app.ui.theme.LearnLockTheme
 import com.learnlock.app.ui.viewmodel.LockViewModel
 import com.learnlock.app.ui.viewmodel.LockViewModelFactory
 
+/**
+ * Полноэкранная Activity с учебной задачей.
+ * Показывается поверх lock-screen (флаги SHOW_WHEN_LOCKED и др.).
+ * Кнопка Back блокируется, кроме режима preview с главного экрана.
+ */
 class LockActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,7 +34,7 @@ class LockActivity : ComponentActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    // Block back to keep task friction — except preview mode.
+                    // В обычном режиме Back не закрывает задачу (трение).
                     if (intent.getBooleanExtra(EXTRA_FORCE_PREVIEW, false)) {
                         finish()
                     }
@@ -60,6 +65,7 @@ class LockActivity : ComponentActivity() {
     }
 
     companion object {
+        /** Extra: показать задачу для проверки UI даже при активной сессии. */
         const val EXTRA_FORCE_PREVIEW = "force_preview"
     }
 }

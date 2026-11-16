@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.first
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
+/**
+ * Фасад доменной логики LearnLock для UI и lock-слоя.
+ * Связывает профиль, сессию, статистику и [TaskEngine].
+ */
 class LearnLockRepository(
     private val profileDao: ProfileDao,
     private val parentAuthDao: ParentAuthDao,
@@ -22,11 +26,13 @@ class LearnLockRepository(
     fun observeProfile(): Flow<ChildProfileEntity?> = profileDao.observeProfile()
     fun observeSession(): Flow<SessionState> = sessionStore.state
 
+    /** Попытки за последние [days] дней (экран статистики). */
     fun observeStats(days: Int): Flow<List<TaskAttemptEntity>> {
         val from = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(days.toLong())
         return statsDao.observeSince(from)
     }
 
+    /** Создаёт профиль по умолчанию, если БД пуста. */
     suspend fun ensureDefaults() {
         if (profileDao.getProfile() == null) {
             profileDao.upsert(ChildProfileEntity())
@@ -35,6 +41,7 @@ class LearnLockRepository(
 
     suspend fun hasParentPin(): Boolean = parentAuthDao.get() != null
 
+    /** Сохраняет новый родительский PIN (4–12 цифр) как PBKDF2-хеш. */
     suspend fun setParentPin(pin: String) {
         require(pin.length in 4..12) { "PIN must be 4-12 digits" }
         val salt = PinHasher.createSalt()
@@ -46,6 +53,7 @@ class LearnLockRepository(
         )
     }
 
+    /** Проверяет введённый PIN родителя. */
     suspend fun verifyParentPin(pin: String): Boolean {
         val entity = parentAuthDao.get() ?: return false
         return PinHasher.matches(pin, entity)
@@ -58,11 +66,18 @@ class LearnLockRepository(
     suspend fun getProfileOrDefault(): ChildProfileEntity =
         profileDao.getProfile() ?: ChildProfileEntity().also { profileDao.upsert(it) }
 
+    /** true, если сейчас действует свободный доступ после решения задачи. */
     suspend fun isSessionActive(): Boolean {
         val state = sessionStore.state.first()
         return state.unlockedUntilMillis > System.currentTimeMillis()
     }
 
+    /**
+     * Нужно ли показать экран задачи после пробуждения / смены приложения.
+     *
+     * Условия отказа: блокировка выключена, сессия ещё активна,
+     * либо сейчас вне окна и режим [OutsideWindowMode.NO_TASKS].
+     */
     suspend fun shouldPresentLock(): Boolean {
         val profile = getProfileOrDefault()
         if (!profile.lockEnabled) return false
@@ -73,6 +88,7 @@ class LearnLockRepository(
         }
     }
 
+    /** Генерирует следующую задачу с учётом возраста, точности и слабых навыков. */
     suspend fun nextTask(): Task {
         val profile = getProfileOrDefault()
         val session = sessionStore.state.first()
@@ -95,6 +111,10 @@ class LearnLockRepository(
         )
     }
 
+    /**
+     * Строит [LearnerStats] из последних попыток для AdaptiveSelector.
+     * @param limit сколько последних учебных попыток учесть
+     */
     suspend fun loadLearnerStats(limit: Int = 30): LearnerStats {
         val attempts = statsDao.recentLearningAttempts(limit)
         val records = attempts.mapNotNull { entity ->
@@ -112,6 +132,7 @@ class LearnLockRepository(
         return LearnerStats.fromAttempts(records)
     }
 
+    /** Верный ответ: открывает сессию на [ChildProfileEntity.sessionMinutes] минут. */
     suspend fun onCorrectAnswer(task: Task, usedHint: Boolean) {
         val profile = getProfileOrDefault()
         val until = System.currentTimeMillis() +
@@ -122,6 +143,7 @@ class LearnLockRepository(
         refreshAccuracy()
     }
 
+    /** Неверный ответ: увеличивает счётчик ошибок, сессию не открывает. */
     suspend fun onWrongAnswer(task: Task, usedHint: Boolean) {
         val session = sessionStore.state.first()
         sessionStore.setConsecutiveWrong(session.consecutiveWrong + 1)
@@ -129,6 +151,10 @@ class LearnLockRepository(
         refreshAccuracy()
     }
 
+    /**
+     * Emergency-разблокировка родителем.
+     * @return true, если PIN верен и сессия открыта
+     */
     suspend fun unlockWithParentPin(pin: String): Boolean {
         if (!verifyParentPin(pin)) return false
         val profile = getProfileOrDefault()
@@ -150,6 +176,7 @@ class LearnLockRepository(
         return true
     }
 
+    /** Принудительно сбрасывает свободную сессию. */
     suspend fun endSessionNow() {
         sessionStore.clearUnlock()
     }
@@ -179,6 +206,10 @@ class LearnLockRepository(
         sessionStore.setAccuracy(accuracy)
     }
 
+    /**
+     * Решение по текущему часу суток относительно окна профиля.
+     * Поддерживает окно через полночь (start > end).
+     */
     private fun outsideWindowDecision(profile: ChildProfileEntity): OutsideDecision {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         val start = profile.activeWindowStartHour

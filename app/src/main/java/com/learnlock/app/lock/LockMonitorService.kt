@@ -12,6 +12,11 @@ import com.learnlock.app.LearnLockApp
 import com.learnlock.app.R
 import com.learnlock.app.ui.MainActivity
 
+/**
+ * Foreground-сервис мониторинга.
+ * Держит процесс живым и регистрирует [ScreenEventReceiver]
+ * на SCREEN_ON / USER_PRESENT (с Android 8 эти интенты нельзя надёжно ловить из манифеста).
+ */
 class LockMonitorService : Service() {
     private var screenReceiver: ScreenEventReceiver? = null
 
@@ -35,6 +40,7 @@ class LockMonitorService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Перезапуск системой после убийства процесса, если блокировка была включена.
         return START_STICKY
     }
 

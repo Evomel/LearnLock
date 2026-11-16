@@ -8,6 +8,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.learnlock.app.R
 
+/** Семейство шрифта Manrope (bundled ttf в res/font). */
 val ManropeFamily = FontFamily(
     Font(R.font.manrope_regular, FontWeight.Normal),
     Font(R.font.manrope_semibold, FontWeight.SemiBold),
@@ -15,6 +16,7 @@ val ManropeFamily = FontFamily(
     Font(R.font.manrope_extrabold, FontWeight.ExtraBold)
 )
 
+/** Типографика приложения на базе Manrope. */
 val LlTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = ManropeFamily,

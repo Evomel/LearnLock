@@ -3,8 +3,9 @@ package com.learnlock.taskengine
 import kotlin.random.Random
 
 /**
- * Расширенная логика: числовые последовательности (арифметика,
- * геометрия, вторые разности), узоры, текстовые задачи.
+ * Генератор задач [TaskCategory.LOGIC]: числовые последовательности
+ * (арифметическая, геометрическая, «фибоначчиевидная», с постоянной второй разностью),
+ * узоры из символов и короткие текстовые задачи.
  */
 class ExpandedLogicProvider(
     private val repeatAvoidance: RepeatAvoidance = RepeatAvoidance()
@@ -14,6 +15,7 @@ class ExpandedLogicProvider(
     private val names = listOf("Маши", "Пети", "Ани", "Игоря", "Серёжи", "Оли", "Кати", "Димы")
     private val items = listOf("яблок", "карандашей", "наклеек", "конфет", "марок", "открыток")
 
+    /** Генерирует задачу с до 8 повторов при совпадении с [RepeatAvoidance]. */
     override fun generate(
         profile: DifficultyProfile,
         random: Random,
@@ -29,6 +31,7 @@ class ExpandedLogicProvider(
         return task
     }
 
+    /** Одна попытка генерации с учётом [preferredSkill] или распределения по уровню. */
     private fun generateOnce(
         profile: DifficultyProfile,
         random: Random,
@@ -46,12 +49,14 @@ class ExpandedLogicProvider(
         } else byLevel(level, random)
     }
 
+    /** Случайный тип логического задания по числовому уровню сложности. */
     private fun byLevel(level: Int, random: Random): Task = when {
         level <= 3 -> sequence(level, random)
         level <= 6 -> sequence(level, random)
         else -> if (random.nextBoolean()) pattern(level, random) else wordProblem(level, random)
     }
 
+    /** Выбирает подтип числовой последовательности. */
     private fun sequence(level: Int, random: Random): Task {
         return when (random.nextInt(if (level <= 3) 2 else 4)) {
             0 -> arithmetic(level, random)
@@ -61,6 +66,7 @@ class ExpandedLogicProvider(
         }
     }
 
+    /** Арифметическая прогрессия: постоянный шаг между соседними числами. */
     private fun arithmetic(level: Int, random: Random): Task {
         val step = when {
             level <= 3 -> 1
@@ -93,6 +99,7 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Геометрическая прогрессия: умножение на постоянное отношение. */
     private fun geometric(level: Int, random: Random): Task {
         val ratio = if (level <= 5) 2 else 3
         val start = random.nextInt(1, if (level <= 4) 6 else 12)
@@ -120,6 +127,7 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Последовательность, где каждый член — сумма двух предыдущих. */
     private fun fibonacciish(level: Int, random: Random): Task {
         val a = random.nextInt(1, 6)
         val b = random.nextInt(1, 6)
@@ -146,8 +154,8 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Квадратичная последовательность с постоянной второй разностью между шагами. */
     private fun secondDiff(level: Int, random: Random): Task {
-        // Квадратичная последовательность: a, a+d1, a+d1+d2, ... с постоянной второй разностью
         val d1 = random.nextInt(1, 4)
         val d2 = random.nextInt(1, 3)
         val start = random.nextInt(1, 8)
@@ -179,6 +187,7 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Задание на узор из Unicode-символов (чередование, рост групп, тройка). */
     private fun pattern(level: Int, random: Random): Task {
         val shapes = listOf("●", "■", "▲", "◆", "★", "♥")
         return when (random.nextInt(if (level <= 4) 2 else 3)) {
@@ -188,6 +197,7 @@ class ExpandedLogicProvider(
         }
     }
 
+    /** Узор ABAB… — следующий символ противоположной фигуры. */
     private fun alternating(shapes: List<String>, random: Random, level: Int): Task {
         val a = shapes.random(random)
         val b = shapes.filter { it != a }.random(random)
@@ -208,8 +218,8 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Группы длины 1, 2, 3 из разных фигур; далее начало группы из четырёх. */
     private fun growing(shapes: List<String>, random: Random, level: Int): Task {
-        // a | bb | ccc | ? → следующая группа из 4, первая фигура d
         val picks = shapes.shuffled(random).take(4)
         val a = picks[0]
         val b = picks[1]
@@ -232,8 +242,8 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Повтор цикла из трёх фигур: a, b, c, a, b, … */
     private fun triple(shapes: List<String>, random: Random, level: Int): Task {
-        // a, b, c, a, b, ?
         val trio = shapes.shuffled(random).take(3)
         val (a, b, c) = trio
         val pattern = listOf(a, b, c, a, b)
@@ -253,6 +263,7 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Случайная текстовая логическая задача по уровню. */
     private fun wordProblem(level: Int, random: Random): Task {
         return when (random.nextInt(if (level <= 4) 3 else 5)) {
             0 -> compareProblem(level, random)
@@ -263,6 +274,7 @@ class ExpandedLogicProvider(
         }
     }
 
+    /** Сравнение количеств у двух персонажей («на N больше»). */
     private fun compareProblem(level: Int, random: Random): Task {
         val n1 = names.random(random)
         val n2 = names.filter { it != n1 }.random(random)
@@ -282,6 +294,7 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Остаток после передачи части предметов другу. */
     private fun remainingProblem(level: Int, random: Random): Task {
         val n1 = names.random(random)
         val n2 = names.filter { it != n1 }.random(random)
@@ -300,6 +313,7 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Сумма шаров разных «цветов» в коробке. */
     private fun sumColors(level: Int, random: Random): Task {
         val a = random.nextInt(2, 15)
         val b = random.nextInt(2, 15)
@@ -318,6 +332,7 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Цепочка сравнения возраста — кто самый старший. */
     private fun ageOrder(level: Int, random: Random): Task {
         val n1 = names.random(random)
         val rest = names.filter { it != n1 }.shuffled(random)
@@ -338,6 +353,7 @@ class ExpandedLogicProvider(
         )
     }
 
+    /** Подсчёт птиц: прилетели и улетели. */
     private fun countProblem(level: Int, random: Random): Task {
         val a = random.nextInt(3, 15)
         val came = random.nextInt(1, 8)

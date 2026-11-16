@@ -26,6 +26,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** Статистика попыток за 7 дней и сводка по навыкам (LearnerStats). */
 @Composable
 fun StatsScreen(
     attempts: List<TaskAttemptEntity>,

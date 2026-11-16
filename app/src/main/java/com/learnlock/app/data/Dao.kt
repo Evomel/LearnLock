@@ -6,18 +6,23 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/** Доступ к единственной записи профиля ребёнка (id = 1). */
 @Dao
 interface ProfileDao {
+    /** Наблюдение за профилем для UI (главный экран, настройки). */
     @Query("SELECT * FROM child_profile WHERE id = 1")
     fun observeProfile(): Flow<ChildProfileEntity?>
 
+    /** Одноразовое чтение профиля (логика блокировки, генерация задач). */
     @Query("SELECT * FROM child_profile WHERE id = 1")
     suspend fun getProfile(): ChildProfileEntity?
 
+    /** Вставка или полная замена профиля. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(profile: ChildProfileEntity)
 }
 
+/** Хранение хеша родительского PIN (одна запись). */
 @Dao
 interface ParentAuthDao {
     @Query("SELECT * FROM parent_auth WHERE id = 1")
@@ -27,11 +32,17 @@ interface ParentAuthDao {
     suspend fun upsert(auth: ParentAuthEntity)
 }
 
+/** История попыток решения задач и emergency-разблокировок. */
 @Dao
 interface StatsDao {
+    /** Добавить попытку (успех/ошибка/parent unlock). */
     @Insert
     suspend fun insert(attempt: TaskAttemptEntity)
 
+    /**
+     * Поток попыток с указанного момента (для экрана статистики).
+     * @param fromMillis нижняя граница timestamp (включительно)
+     */
     @Query(
         """
         SELECT * FROM task_attempt
@@ -41,6 +52,10 @@ interface StatsDao {
     )
     fun observeSince(fromMillis: Long): Flow<List<TaskAttemptEntity>>
 
+    /**
+     * Средняя точность за период, без учёта parent-unlock.
+     * @return null, если попыток ещё не было
+     */
     @Query(
         """
         SELECT AVG(CASE WHEN correct = 1 THEN 1.0 ELSE 0.0 END) FROM task_attempt
@@ -49,6 +64,10 @@ interface StatsDao {
     )
     suspend fun accuracySince(fromMillis: Long): Double?
 
+    /**
+     * Последние учебные попытки для адаптивного селектора навыков.
+     * Parent-unlock исключается.
+     */
     @Query(
         """
         SELECT * FROM task_attempt

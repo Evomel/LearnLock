@@ -2,7 +2,10 @@ package com.learnlock.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-/** Tween 10–14 palette: cool ink + mint energy + coral punch (no purple / cream kitsch). */
+/**
+ * Палитра tween UI (10–14 лет): холодный ink, мятный акцент, коралловый punch.
+ * Без типичных «AI» фиолетовых/кремовых клише.
+ */
 object LlColors {
     val Ink = Color(0xFF121A24)
     val InkSoft = Color(0xFF1C2736)

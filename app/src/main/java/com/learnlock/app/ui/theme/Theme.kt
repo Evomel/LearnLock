@@ -42,6 +42,7 @@ private val DarkColors = darkColorScheme(
     outline = LlColors.TextSecondary
 )
 
+/** Тема Material3 LearnLock: светлая/тёмная схема + [LlTypography]. */
 @Composable
 fun LearnLockTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

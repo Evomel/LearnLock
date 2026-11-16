@@ -3,13 +3,25 @@ package com.learnlock.taskengine
 import kotlin.random.Random
 
 /**
- * Refines a [TaskRequest] using local learner stats: boost weak skills,
- * slightly dampen strong ones, optionally pin a preferred weak skill.
+ * Корректирует [TaskRequest] по локальной статистике ученика:
+ * усиливает слабые навыки и категории, слегка снижает вес сильных,
+ * с заданной вероятностью закрепляет приоритетный слабый навык.
+ *
+ * @param preferWeakChance вероятность (0..1) выбрать слабый навык, если он не задан явно
+ * @param random источник случайности для выбора слабого навыка
  */
 class AdaptiveSelector(
     private val preferWeakChance: Double = 0.4,
     private val random: Random = Random.Default
 ) {
+    /**
+     * Результат адаптации: обновлённый запрос и вынесенные веса/приоритеты для отладки и выбора провайдера.
+     *
+     * @property request скорректированный [TaskRequest]
+     * @property categoryWeights итоговые веса категорий после адаптации
+     * @property preferredSkill выбранный приоритетный навык (может отличаться от исходного запроса)
+     * @property preferredCategory категория приоритетного навыка
+     */
     data class RefinedRequest(
         val request: TaskRequest,
         val categoryWeights: Map<TaskCategory, Int>,
@@ -17,6 +29,14 @@ class AdaptiveSelector(
         val preferredCategory: TaskCategory?
     )
 
+    /**
+     * Строит уточнённый запрос: пересчитывает веса категорий, смещение сложности и флаги «проще».
+     *
+     * Без [TaskRequest.learnerStats] возвращает исходные параметры без изменений.
+     *
+     * @param request исходный запрос на задачу
+     * @return [RefinedRequest] с обновлённым запросом и метаданными выбора
+     */
     fun refine(request: TaskRequest): RefinedRequest {
         val stats = request.learnerStats
         if (stats == null) {

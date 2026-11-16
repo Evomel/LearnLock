@@ -26,6 +26,7 @@ import com.learnlock.app.ui.components.LlGhostButton
 import com.learnlock.app.ui.components.LlPrimaryButton
 import com.learnlock.app.ui.theme.LlColors
 
+/** Установка родительского PIN (4–12 цифр) при первом запуске. */
 @Composable
 fun ParentPinSetupScreen(
     onSave: (String) -> Unit,

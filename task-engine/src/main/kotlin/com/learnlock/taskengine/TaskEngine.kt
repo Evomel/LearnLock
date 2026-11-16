@@ -3,7 +3,14 @@ package com.learnlock.taskengine
 import kotlin.random.Random
 
 /**
- * Platform-agnostic task generator. Safe to reuse from Android and future iOS/KMP.
+ * Платформо-независимый оркестратор генерации задач.
+ *
+ * Выбирает провайдер по весам и адаптивным приоритетам, строит [DifficultyProfile]
+ * и делегирует генерацию. Подходит для Android и возможного KMP/iOS.
+ *
+ * @param providers список провайдеров по категориям
+ * @param random общий источник случайности
+ * @param adaptiveSelector модуль адаптации запроса по статистике
  */
 class TaskEngine(
     private val providers: List<TaskProvider> = listOf(
@@ -14,6 +21,13 @@ class TaskEngine(
     private val random: Random = Random.Default,
     private val adaptiveSelector: AdaptiveSelector = AdaptiveSelector(random = random)
 ) {
+    /**
+     * Возвращает следующую задачу по запросу ученика.
+     *
+     * @param request параметры возраста, категорий, весов и статистики
+     * @return одна [Task] от выбранного провайдера
+     * @throws IllegalArgumentException если не включена ни одна категория
+     */
     fun nextTask(request: TaskRequest): Task {
         val enabled = providers.filter { it.category in request.enabledCategories }
         require(enabled.isNotEmpty()) { "At least one task category must be enabled" }
@@ -39,6 +53,10 @@ class TaskEngine(
         return provider.generate(profile, random, preferredSkill)
     }
 
+    /**
+     * Случайный выбор провайдера с учётом целочисленных весов категорий
+     * (каждый провайдер попадает в «корзину» столько раз, каков его вес).
+     */
     private fun pickWeighted(
         enabled: List<TaskProvider>,
         weights: Map<TaskCategory, Int>

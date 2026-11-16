@@ -10,9 +10,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+/**
+ * Центральная точка управления блокировкой.
+ * Стартует/останавливает мониторинг и поднимает [LockActivity].
+ */
 object LockController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    /** Запускает foreground-сервис, слушающий пробуждение экрана. */
     fun startMonitoring(context: Context) {
         val app = context.applicationContext
         val intent = Intent(app, LockMonitorService::class.java)
@@ -27,6 +32,10 @@ object LockController {
         context.stopService(Intent(context, LockMonitorService::class.java))
     }
 
+    /**
+     * Вызывается при SCREEN_ON / USER_PRESENT.
+     * Показывает задачу только если [LearnLockRepository.shouldPresentLock] = true.
+     */
     fun onScreenAwake(context: Context) {
         val appContext = context.applicationContext
         val app = appContext as? LearnLockApp ?: return
@@ -37,6 +46,10 @@ object LockController {
         }
     }
 
+    /**
+     * Открывает экран задачи поверх приложений.
+     * @param forcePreview true — показать задачу даже при активной сессии (кнопка проверки)
+     */
     fun presentLock(context: Context, forcePreview: Boolean = false) {
         val intent = Intent(context, LockActivity::class.java).apply {
             putExtra(LockActivity.EXTRA_FORCE_PREVIEW, forcePreview)
@@ -50,6 +63,7 @@ object LockController {
         context.startActivity(intent)
     }
 
+    /** Есть ли разрешение «поверх других окон» (задел; MVP стартует Activity). */
     fun canDrawOverlays(context: Context): Boolean =
         Settings.canDrawOverlays(context)
 }
