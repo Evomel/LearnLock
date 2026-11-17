@@ -2,6 +2,8 @@ package com.learnlock.app.lock
 
 import android.content.Context
 import android.content.Intent
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.os.Build
 import android.provider.Settings
 import com.learnlock.app.LearnLockApp
@@ -9,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -32,6 +35,29 @@ object LockController {
 
     fun stopMonitoring(context: Context) {
         context.stopService(Intent(context, LockMonitorService::class.java))
+    }
+
+    fun scheduleNextLaunch(context: Context) {
+        val appContext = context.applicationContext
+        val app = appContext as? LearnLockApp ?: return
+        scope.launch {
+            val atMillis = app.container.repository.observeSession().first().nextLaunchAtMillis
+            if (atMillis <= System.currentTimeMillis()) return@launch
+            val alarmManager = appContext.getSystemService(AlarmManager::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                appContext,
+                1002,
+                Intent(appContext, LaunchAlarmReceiver::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+                !alarmManager.canScheduleExactAlarms()
+            ) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
+            }
+        }
     }
 
     /**

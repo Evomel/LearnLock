@@ -20,6 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.learnlock.app.LearnLockApp
 import com.learnlock.app.ui.screens.HomeScreen
+import com.learnlock.app.ui.screens.HelpScreen
 import com.learnlock.app.ui.screens.OnboardingScreen
 import com.learnlock.app.ui.screens.ParentPinSetupScreen
 import com.learnlock.app.ui.screens.ParentPinUnlockScreen
@@ -74,6 +75,7 @@ private fun LearnLockNav(app: LearnLockApp) {
                     if (vm.uiState.hasParentPin) navController.navigate("settings_pin") else navController.navigate("settings")
                 },
                 onOpenStats = { navController.navigate("stats") },
+                onOpenHelp = { navController.navigate("help") },
                 onOpenPermissions = { navController.navigate("permissions") },
                 onToggleLock = { enabled -> vm.setLockEnabled(enabled) },
                 onPreviewLock = { vm.previewLock() },
@@ -136,6 +138,12 @@ private fun LearnLockNav(app: LearnLockApp) {
         composable("stats") {
             StatsScreen(
                 attempts = vm.uiState.attempts,
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("help") {
+            HelpScreen(
                 backgroundColor = vm.uiState.profile.backgroundColor,
                 onBack = { navController.popBackStack() }
             )
