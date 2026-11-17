@@ -67,6 +67,10 @@
         </receiver>
 
         <receiver
+            android:name=".lock.LaunchAlarmReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".lock.LearnLockDeviceAdminReceiver"
             android:exported="true"
             android:permission="android.permission.BIND_DEVICE_ADMIN">

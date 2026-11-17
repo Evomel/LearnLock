@@ -100,10 +100,7 @@ class LearnLockRepository(
         val profile = getProfileOrDefault()
         if (!profile.lockEnabled) return false
         if (isSessionActive()) return false
-        return when (outsideWindowDecision(profile)) {
-            OutsideDecision.ALLOW_FREE -> false
-            OutsideDecision.SHOW_TASK, OutsideDecision.HARD_BLOCK -> true
-        }
+        return true
     }
 
     /** Генерирует следующую задачу с учётом возраста, точности и слабых навыков. */

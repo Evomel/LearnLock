@@ -153,7 +153,14 @@ fun LockTaskScreen(
                                         enabled = state.cooldownSeconds == 0,
                                         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
                                         colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = LlColors.Surface,
+                                            unfocusedContainerColor = LlColors.Surface,
+                                            focusedTextColor = LlColors.TextPrimary,
+                                            unfocusedTextColor = LlColors.TextPrimary,
+                                            focusedLabelColor = LlColors.MintDeep,
+                                            unfocusedLabelColor = LlColors.TextSecondary,
                                             focusedBorderColor = LlColors.MintDeep,
+                                            unfocusedBorderColor = LlColors.TextSecondary,
                                             cursorColor = LlColors.MintDeep
                                         )
                                     )

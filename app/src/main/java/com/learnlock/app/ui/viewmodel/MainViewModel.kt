@@ -40,6 +40,8 @@ class MainViewModel(
     fun bootstrap() {
         viewModelScope.launch {
             repository.ensureDefaults()
+            repository.refreshNextLaunchIfExpired()
+            LockController.scheduleNextLaunch(getApplication())
             uiState = uiState.copy(hasParentPin = repository.hasParentPin(), bootstrapped = true)
             launch {
                 repository.observeProfile().collectLatest { profile ->
@@ -64,6 +66,7 @@ class MainViewModel(
             repository.setParentPin(pin)
             // При первом PIN используется стандартный интервал профиля — 5 минут.
             repository.scheduleNextLaunch()
+            LockController.scheduleNextLaunch(getApplication())
             uiState = uiState.copy(hasParentPin = true)
         }
     }
@@ -84,6 +87,7 @@ class MainViewModel(
         viewModelScope.launch {
             repository.saveProfile(profile)
             repository.scheduleNextLaunch(profile)
+            LockController.scheduleNextLaunch(getApplication())
             if (profile.lockEnabled) {
                 LockController.startMonitoring(getApplication())
             } else {

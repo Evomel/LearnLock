@@ -15,9 +15,14 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import com.learnlock.app.ui.components.LlBackground
 import com.learnlock.app.ui.components.LlGhostButton
@@ -47,6 +53,7 @@ fun HomeScreen(
     onOpenOnboarding: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenHelp: () -> Unit,
     onOpenPermissions: () -> Unit,
     onToggleLock: (Boolean) -> Unit,
     onPreviewLock: () -> Unit,
@@ -79,11 +86,27 @@ fun HomeScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text(
-                    "LearnLock",
-                    style = MaterialTheme.typography.displayMedium,
-                    color = LlColors.MintDeep
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "LearnLock",
+                        style = MaterialTheme.typography.displayMedium,
+                        color = LlColors.MintDeep
+                    )
+                    IconButton(
+                        onClick = onOpenHelp,
+                        modifier = Modifier.shadow(6.dp, androidx.compose.foundation.shape.CircleShape),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = LlColors.SurfaceElevated.copy(alpha = 0.94f),
+                            contentColor = LlColors.MintDeep
+                        )
+                    ) {
+                        Icon(Icons.Outlined.HelpOutline, contentDescription = "Справка")
+                    }
+                }
                 Text(
                     "Реши — и телефон твой",
                     style = MaterialTheme.typography.headlineSmall,
