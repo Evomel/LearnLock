@@ -23,6 +23,7 @@ import com.learnlock.app.ui.theme.LlColors
 /** Установка родительского PIN (4–12 цифр) при первом запуске. */
 @Composable
 fun ParentPinSetupScreen(
+    backgroundColor: Int = 0,
     onSave: (String) -> Unit,
     onBack: () -> Unit
 ) {
@@ -30,7 +31,7 @@ fun ParentPinSetupScreen(
     var confirm by remember { mutableStateOf("") }
     val valid = pin.length in 4..12 && pin == confirm && pin.all { it.isDigit() }
 
-    LlBackground {
+    LlBackground(backgroundColor = backgroundColor) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

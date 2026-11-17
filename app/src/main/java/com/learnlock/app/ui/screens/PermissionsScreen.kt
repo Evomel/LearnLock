@@ -42,7 +42,7 @@ import com.learnlock.app.ui.theme.LlColors
  * Статусы обновляются при возврате на экран (Lifecycle.ON_RESUME).
  */
 @Composable
-fun PermissionsScreen(onBack: () -> Unit) {
+fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit) {
     val context = LocalContext.current
     var overlay by remember { mutableStateOf(LockController.canDrawOverlays(context)) }
     var accessibility by remember { mutableStateOf(isAccessibilityEnabled(context)) }
@@ -61,7 +61,7 @@ fun PermissionsScreen(onBack: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LlBackground {
+    LlBackground(backgroundColor = backgroundColor) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

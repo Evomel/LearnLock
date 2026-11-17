@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -18,6 +22,7 @@ import com.learnlock.app.LearnLockApp
 import com.learnlock.app.ui.screens.HomeScreen
 import com.learnlock.app.ui.screens.OnboardingScreen
 import com.learnlock.app.ui.screens.ParentPinSetupScreen
+import com.learnlock.app.ui.screens.ParentPinUnlockScreen
 import com.learnlock.app.ui.screens.PermissionsScreen
 import com.learnlock.app.ui.screens.SettingsScreen
 import com.learnlock.app.ui.screens.StatsScreen
@@ -65,7 +70,9 @@ private fun LearnLockNav(app: LearnLockApp) {
             HomeScreen(
                 state = vm.uiState,
                 onOpenOnboarding = { navController.navigate("onboarding") },
-                onOpenSettings = { navController.navigate("settings") },
+                onOpenSettings = {
+                    if (vm.uiState.hasParentPin) navController.navigate("settings_pin") else navController.navigate("settings")
+                },
                 onOpenStats = { navController.navigate("stats") },
                 onOpenPermissions = { navController.navigate("permissions") },
                 onToggleLock = { enabled -> vm.setLockEnabled(enabled) },
@@ -76,6 +83,7 @@ private fun LearnLockNav(app: LearnLockApp) {
         composable("onboarding") {
             OnboardingScreen(
                 hasPin = vm.uiState.hasParentPin,
+                backgroundColor = vm.uiState.profile.backgroundColor,
                 onContinueToPin = { navController.navigate("pin_setup") },
                 onContinueToPermissions = { navController.navigate("permissions") },
                 onDone = { navController.popBackStack() }
@@ -83,9 +91,10 @@ private fun LearnLockNav(app: LearnLockApp) {
         }
         composable("pin_setup") {
             ParentPinSetupScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
                 onSave = { pin ->
                     vm.setPin(pin)
-                    navController.navigate("permissions") {
+                    navController.navigate("settings") {
                         popUpTo("onboarding")
                     }
                 },
@@ -93,7 +102,25 @@ private fun LearnLockNav(app: LearnLockApp) {
             )
         }
         composable("permissions") {
-            PermissionsScreen(onBack = { navController.popBackStack() })
+            PermissionsScreen(backgroundColor = vm.uiState.profile.backgroundColor, onBack = { navController.popBackStack() })
+        }
+        composable("settings_pin") {
+            var error by remember { mutableStateOf<String?>(null) }
+            ParentPinUnlockScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                error = error,
+                onVerify = { pin ->
+                    vm.verifySettingsPin(pin) { valid ->
+                        if (valid) {
+                            error = null
+                            navController.navigate("settings") { popUpTo("settings_pin") { inclusive = true } }
+                        } else {
+                            error = "Неверный PIN"
+                        }
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
         }
         composable("settings") {
             SettingsScreen(
@@ -108,6 +135,7 @@ private fun LearnLockNav(app: LearnLockApp) {
         composable("stats") {
             StatsScreen(
                 attempts = vm.uiState.attempts,
+                backgroundColor = vm.uiState.profile.backgroundColor,
                 onBack = { navController.popBackStack() }
             )
         }
