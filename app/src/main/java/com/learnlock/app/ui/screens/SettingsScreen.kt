@@ -131,8 +131,7 @@ fun SettingsScreen(
                         focusedBorderColor = Color.Black,
                         unfocusedBorderColor = Color.Black,
                         errorTextColor = Color.Black,
-                        errorBorderColor = LlColors.Coral,
-                        errorFocusedBorderColor = LlColors.Coral
+                        errorBorderColor = LlColors.Coral
                     )
                 )
                 if (!nameValid) {

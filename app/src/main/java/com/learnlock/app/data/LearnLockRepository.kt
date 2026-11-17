@@ -64,8 +64,9 @@ class LearnLockRepository(
     }
 
     /** Рассчитывает момент следующего запуска после сохранения настроек или PIN. */
-    suspend fun scheduleNextLaunch(profile: ChildProfileEntity = getProfileOrDefault()) {
-        val intervalMinutes = profile.sessionMinutes.coerceAtLeast(5)
+    suspend fun scheduleNextLaunch(profile: ChildProfileEntity? = null) {
+        val currentProfile = profile ?: getProfileOrDefault()
+        val intervalMinutes = currentProfile.sessionMinutes.coerceAtLeast(5)
         val nextLaunchAt = System.currentTimeMillis() +
             TimeUnit.MINUTES.toMillis(intervalMinutes.toLong())
         sessionStore.setUnlockedUntil(nextLaunchAt)
