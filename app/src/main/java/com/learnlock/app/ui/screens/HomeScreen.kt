@@ -62,7 +62,7 @@ fun HomeScreen(
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
-    LlBackground {
+    LlBackground(backgroundColor = state.profile.backgroundColor) {
         AnimatedVisibility(
             visible = visible,
             enter = fadeIn() + slideInVertically { it / 8 }
@@ -86,7 +86,7 @@ fun HomeScreen(
                     color = LlColors.TextPrimary
                 )
                 Text(
-                    "${state.profile.displayName} · ${state.profile.ageYears} лет · сессия ${state.profile.sessionMinutes} мин",
+                    "${state.profile.displayName} · ${state.profile.ageYears} лет · запускать каждые ${state.profile.sessionMinutes} мин",
                     style = MaterialTheme.typography.bodyMedium,
                     color = LlColors.TextSecondary
                 )
@@ -114,7 +114,7 @@ fun HomeScreen(
                             )
                         )
                     }
-                    Text("Сессия до: $untilText", style = MaterialTheme.typography.bodyMedium)
+                    Text("Доступ до: $untilText", style = MaterialTheme.typography.bodyMedium)
                     Text(
                         "Ошибок подряд: ${state.session.consecutiveWrong}",
                         style = MaterialTheme.typography.bodyMedium,
@@ -132,7 +132,7 @@ fun HomeScreen(
                 LlGhostButton("Статистика за 7 дней", onClick = onOpenStats)
                 LlGhostButton("Права Android", onClick = onOpenPermissions)
                 if (sessionActive) {
-                    LlGhostButton("Завершить сессию", onClick = onEndSession)
+                    LlGhostButton("Завершить доступ", onClick = onEndSession)
                 }
 
                 Spacer(Modifier.height(8.dp))

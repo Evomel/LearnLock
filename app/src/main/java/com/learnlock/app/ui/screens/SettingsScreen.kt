@@ -1,6 +1,8 @@
 package com.learnlock.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,13 +59,20 @@ fun SettingsScreen(
     onBack: () -> Unit
 ) {
     var draft by remember(profile) { mutableStateOf(profile) }
-    val sessionOptions = listOf(5, 15, 30, 60)
     val chipColors = FilterChipDefaults.filterChipColors(
         selectedContainerColor = LlColors.MintDeep,
         selectedLabelColor = LlColors.TextOnAccent
     )
 
-    LlBackground {
+    val backgroundChoices = listOf(
+        "Мятный" to Color(0xFFEAF2F6),
+        "Персиковый" to Color(0xFFFFE4D1),
+        "Голубой" to Color(0xFFDCEBFF),
+        "Лавандовый" to Color(0xFFEBD8FF),
+        "Зелёный" to Color(0xFFD4F2DF)
+    )
+
+    LlBackground(backgroundColor = draft.backgroundColor) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -111,21 +122,33 @@ fun SettingsScreen(
                     }
                 }
 
-                Text("Сессия")
+                Text("Цвет фона", style = MaterialTheme.typography.titleMedium)
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    sessionOptions.forEach { minutes ->
+                    backgroundChoices.forEachIndexed { index, (label, color) ->
                         FilterChip(
-                            selected = draft.sessionMinutes == minutes,
-                            onClick = { draft = draft.copy(sessionMinutes = minutes) },
-                            label = { Text("$minutes мин", maxLines = 1) },
+                            selected = draft.backgroundColor == index,
+                            onClick = { draft = draft.copy(backgroundColor = index) },
+                            label = { Text(label, maxLines = 1) },
+                            leadingIcon = { androidx.compose.foundation.layout.Box(Modifier.size(14.dp).background(color, RoundedCornerShape(50))) },
                             colors = chipColors
                         )
                     }
                 }
+
+                Text("Запускать каждые: ${draft.sessionMinutes} мин", style = MaterialTheme.typography.titleMedium)
+                Slider(
+                    value = draft.sessionMinutes.toFloat(),
+                    onValueChange = {
+                        draft = draft.copy(sessionMinutes = it.roundToInt().coerceIn(5, 60))
+                    },
+                    valueRange = 5f..60f,
+                    steps = 10,
+                    colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
+                )
 
                 Text("Окно: ${draft.activeWindowStartHour}:00–${draft.activeWindowEndHour}:00")
                 Slider(

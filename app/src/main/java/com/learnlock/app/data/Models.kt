@@ -21,7 +21,9 @@ data class ChildProfileEntity(
     /** Смещение сложности: −1 легче, 0 норма, +1 сложнее. */
     val difficultyOffset: Int = 0,
     /** Минуты свободного пользования после решения / parent PIN. */
-    val sessionMinutes: Int = 15,
+    val sessionMinutes: Int = 5,
+    /** Вариант фона главного и экранов настроек. */
+    val backgroundColor: Int = 0,
     val activeWindowStartHour: Int = 7,
     val activeWindowEndHour: Int = 21,
     val outsideWindowMode: String = OutsideWindowMode.NO_TASKS.name,

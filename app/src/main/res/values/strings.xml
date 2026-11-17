@@ -3,7 +3,7 @@
     <string name="app_name">LearnLock</string>
     <string name="accessibility_description">LearnLock показывает учебную задачу после пробуждения экрана, чтобы ребёнок решил пример перед использованием телефона. Сервис не читает содержимое других приложений и не собирает персональные данные вне устройства.</string>
     <string name="device_admin_description">Опционально усиливает защиту от быстрого удаления приложения ребёнком.</string>
-    <string name="lock_notification_channel">Сессия LearnLock</string>
+    <string name="lock_notification_channel">Доступ LearnLock</string>
     <string name="lock_notification_title">LearnLock активен</string>
-    <string name="lock_notification_text">Мониторинг сессии и пробуждения экрана</string>
+    <string name="lock_notification_text">Мониторинг доступа и пробуждения экрана</string>
 </resources>

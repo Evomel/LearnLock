@@ -51,6 +51,7 @@ private val ButtonShape = RoundedCornerShape(18.dp)
 fun LlBackground(
     modifier: Modifier = Modifier,
     energetic: Boolean = false,
+    backgroundColor: Int = 0,
     content: @Composable () -> Unit
 ) {
     val transition = rememberInfiniteTransition(label = "bg")
@@ -63,6 +64,14 @@ fun LlBackground(
         ),
         label = "shift"
     )
+    val lightBackgrounds = listOf(
+        listOf(LlColors.Mist, Color(0xFFDFF3F1), LlColors.MistDeep),
+        listOf(Color(0xFFFFF3E8), Color(0xFFFFE4D1), Color(0xFFFFC9A8)),
+        listOf(Color(0xFFEAF2FF), Color(0xFFDCEBFF), Color(0xFFBCD7FF)),
+        listOf(Color(0xFFF7EEFF), Color(0xFFEBD8FF), Color(0xFFD8B9F7)),
+        listOf(Color(0xFFEAFBF2), Color(0xFFD4F2DF), Color(0xFFB7E5C7))
+    )
+    val selectedBackground = lightBackgrounds.getOrElse(backgroundColor.coerceIn(0, lightBackgrounds.lastIndex)) { lightBackgrounds.first() }
     val brush = if (energetic) {
         Brush.verticalGradient(
             colors = listOf(
@@ -74,11 +83,9 @@ fun LlBackground(
         )
     } else {
         Brush.verticalGradient(
-            colors = listOf(
-                LlColors.Mist,
-                Color(0xFFDFF3F1).copy(alpha = 0.9f + 0.05f * shift),
-                LlColors.MistDeep.copy(alpha = 0.65f)
-            )
+            colors = selectedBackground.mapIndexed { index, color ->
+                color.copy(alpha = if (index == 1) 0.9f + 0.05f * shift else if (index == 2) 0.65f else 1f)
+            }
         )
     }
     Box(
