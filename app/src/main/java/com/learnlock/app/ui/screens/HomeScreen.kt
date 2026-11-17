@@ -52,6 +52,7 @@ fun HomeScreen(
     onPreviewLock: () -> Unit,
     onEndSession: () -> Unit
 ) {
+    val firstLaunch = !state.hasParentPin
     val sessionActive = state.session.unlockedUntilMillis > System.currentTimeMillis()
     val untilText = if (sessionActive) {
         SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -114,12 +115,14 @@ fun HomeScreen(
                             )
                         )
                     }
-                    Text("Доступ до: $untilText", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        "Ошибок подряд: ${state.session.consecutiveWrong}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = LlColors.TextSecondary
-                    )
+                    if (!firstLaunch) {
+                        Text("Запуск в: $untilText", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Ошибок подряд: ${state.session.consecutiveWrong}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = LlColors.TextSecondary
+                        )
+                    }
                 }
 
                 if (!state.hasParentPin) {

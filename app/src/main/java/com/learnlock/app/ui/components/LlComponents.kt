@@ -150,7 +150,8 @@ fun LlGhostButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    contentColor: Color = LlColors.TextPrimary
 ) {
     OutlinedButton(
         onClick = onClick,
@@ -160,7 +161,7 @@ fun LlGhostButton(
             .height(52.dp),
         shape = ButtonShape,
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = LlColors.TextPrimary
+            contentColor = contentColor
         )
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)

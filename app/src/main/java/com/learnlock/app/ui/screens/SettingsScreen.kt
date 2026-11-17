@@ -59,7 +59,10 @@ fun SettingsScreen(
     onSave: (ChildProfileEntity) -> Unit,
     onBack: () -> Unit
 ) {
-    var draft by remember(profile) { mutableStateOf(profile) }
+    var draft by remember(profile) {
+        mutableStateOf(profile.copy(displayName = profile.displayName.takeUnless { it == "Ребёнок" } ?: ""))
+    }
+    val nameValid = draft.displayName.trim().length >= 2
     val chipColors = FilterChipDefaults.filterChipColors(
         selectedContainerColor = LlColors.MintDeep,
         selectedLabelColor = LlColors.TextOnAccent
@@ -90,12 +93,24 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = draft.displayName,
                     onValueChange = { draft = draft.copy(displayName = it.take(24)) },
-                    label = { Text("Имя") },
+                    label = { Text("Имя ребёнка") },
+                    placeholder = { Text("Ребёнок", color = LlColors.TextSecondary) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    isError = draft.displayName.isNotEmpty() && !nameValid,
                     shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = LlColors.MintDeep)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
+                        cursorColor = Color.Black,
+                        focusedLabelColor = Color.Black,
+                        unfocusedLabelColor = Color.Black,
+                        focusedBorderColor = LlColors.MintDeep
+                    )
                 )
+                if (!nameValid) {
+                    Text("Введите имя минимум из двух символов", color = LlColors.TextSecondary, style = MaterialTheme.typography.bodySmall)
+                }
 
                 Text("Возраст: ${draft.ageYears}", style = MaterialTheme.typography.titleMedium)
                 Slider(
@@ -108,20 +123,23 @@ fun SettingsScreen(
                     colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
                 )
 
-                Text("Сложность: ${difficultyLabel(draft.difficultyOffset)}")
-                FlowRow(
+                Text("Сложность: ${difficultyLabel(draft.difficultyOffset)}", style = MaterialTheme.typography.titleMedium)
+                Slider(
+                    value = draft.difficultyOffset.toFloat(),
+                    onValueChange = {
+                        draft = draft.copy(difficultyOffset = it.roundToInt().coerceIn(-1, 1))
+                    },
+                    valueRange = -1f..1f,
+                    steps = 1,
+                    colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
+                )
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    listOf(-1, 0, 1).forEach { offset ->
-                        FilterChip(
-                            selected = draft.difficultyOffset == offset,
-                            onClick = { draft = draft.copy(difficultyOffset = offset) },
-                            label = { Text(difficultyLabel(offset), maxLines = 1) },
-                            colors = chipColors
-                        )
-                    }
+                    Text("Легче", style = MaterialTheme.typography.bodySmall, color = LlColors.TextSecondary)
+                    Text("Норма", style = MaterialTheme.typography.bodySmall, color = LlColors.TextSecondary)
+                    Text("Сложнее", style = MaterialTheme.typography.bodySmall, color = LlColors.TextSecondary)
                 }
 
                 Text("Цвет фона", style = MaterialTheme.typography.titleMedium)
@@ -160,7 +178,7 @@ fun SettingsScreen(
                     },
                     valueRange = 0f..23f,
                     steps = 22,
-                    colors = SliderDefaults.colors(thumbColor = LlColors.Coral, activeTrackColor = LlColors.CoralSoft)
+                    colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
                 )
                 Slider(
                     value = draft.activeWindowEndHour.toFloat(),
@@ -169,7 +187,7 @@ fun SettingsScreen(
                     },
                     valueRange = 0f..23f,
                     steps = 22,
-                    colors = SliderDefaults.colors(thumbColor = LlColors.Coral, activeTrackColor = LlColors.CoralSoft)
+                    colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
                 )
 
                 Text("Вне окна")
@@ -233,8 +251,8 @@ fun SettingsScreen(
                 )
             }
 
-            LlPrimaryButton("Сохранить", onClick = { onSave(draft) }, coral = true)
-            LlGhostButton("Назад", onClick = onBack)
+            LlPrimaryButton("Сохранить", onClick = { onSave(draft.copy(displayName = draft.displayName.trim())) }, enabled = nameValid, coral = true)
+            LlGhostButton("Назад", onClick = onBack, contentColor = LlColors.TextSecondary)
             }
         }
     }
