@@ -29,6 +29,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -72,8 +73,9 @@ fun SettingsScreen(
         "Зелёный" to Color(0xFFD4F2DF)
     )
 
-    LlBackground(backgroundColor = draft.backgroundColor) {
-        Column(
+    key(draft.backgroundColor) {
+        LlBackground(backgroundColor = draft.backgroundColor) {
+            Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
@@ -233,6 +235,7 @@ fun SettingsScreen(
 
             LlPrimaryButton("Сохранить", onClick = { onSave(draft) }, coral = true)
             LlGhostButton("Назад", onClick = onBack)
+            }
         }
     }
 }
