@@ -144,7 +144,7 @@ fun LlPrimaryButton(
             disabledElevation = 0.dp
         ),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (coral) LlColors.Coral else LlColors.MintDeep,
+            containerColor = LlColors.MintDeep,
             contentColor = LlColors.TextOnAccent,
             disabledContainerColor = LlColors.MistDeep,
             disabledContentColor = LlColors.TextSecondary

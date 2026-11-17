@@ -123,6 +123,7 @@ private fun LearnLockNav(app: LearnLockApp) {
             )
         }
         composable("settings") {
+            LaunchedEffect(Unit) { vm.refreshNextLaunchIfExpired() }
             SettingsScreen(
                 profile = vm.uiState.profile,
                 onSave = { profile ->

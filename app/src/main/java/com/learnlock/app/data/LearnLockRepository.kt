@@ -74,6 +74,13 @@ class LearnLockRepository(
         sessionStore.setConsecutiveWrong(0)
     }
 
+    suspend fun refreshNextLaunchIfExpired() {
+        val session = sessionStore.state.first()
+        if (session.nextLaunchAtMillis == 0L || session.nextLaunchAtMillis <= System.currentTimeMillis()) {
+            scheduleNextLaunch()
+        }
+    }
+
     suspend fun getProfileOrDefault(): ChildProfileEntity =
         profileDao.getProfile() ?: ChildProfileEntity().also { profileDao.upsert(it) }
 

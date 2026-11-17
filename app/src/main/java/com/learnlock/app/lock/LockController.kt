@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Центральная точка управления блокировкой.
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
  */
 object LockController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val lockVisible = AtomicBoolean(false)
 
     /** Запускает foreground-сервис, слушающий пробуждение экрана. */
     fun startMonitoring(context: Context) {
@@ -46,11 +48,14 @@ object LockController {
         }
     }
 
+    fun onScheduledCheck(context: Context) = onScreenAwake(context)
+
     /**
      * Открывает экран задачи поверх приложений.
      * @param forcePreview true — показать задачу даже при активной сессии (кнопка проверки)
      */
     fun presentLock(context: Context, forcePreview: Boolean = false) {
+        if (!forcePreview && !lockVisible.compareAndSet(false, true)) return
         val intent = Intent(context, LockActivity::class.java).apply {
             putExtra(LockActivity.EXTRA_FORCE_PREVIEW, forcePreview)
             addFlags(
@@ -61,6 +66,10 @@ object LockController {
             )
         }
         context.startActivity(intent)
+    }
+
+    fun onLockActivityClosed() {
+        lockVisible.set(false)
     }
 
     /** Есть ли разрешение «поверх других окон» (задел; MVP стартует Activity). */
