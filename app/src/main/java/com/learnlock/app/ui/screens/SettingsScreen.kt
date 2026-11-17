@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.learnlock.app.data.ChildProfileEntity
@@ -63,9 +64,17 @@ fun SettingsScreen(
         mutableStateOf(profile.copy(displayName = profile.displayName.takeUnless { it == "Ребёнок" } ?: ""))
     }
     val nameValid = draft.displayName.trim().length >= 2
+    var nameFocused by remember { mutableStateOf(false) }
+    var nameErrorShown by remember { mutableStateOf(false) }
     val chipColors = FilterChipDefaults.filterChipColors(
         selectedContainerColor = LlColors.MintDeep,
-        selectedLabelColor = LlColors.TextOnAccent
+        selectedLabelColor = LlColors.TextOnAccent,
+        labelColor = Color.Black
+    )
+    val backgroundChipColors = FilterChipDefaults.filterChipColors(
+        selectedContainerColor = LlColors.MintDeep,
+        selectedLabelColor = LlColors.TextOnAccent,
+        labelColor = Color.Black
     )
 
     val backgroundChoices = listOf(
@@ -92,12 +101,26 @@ fun SettingsScreen(
             LlPanel {
                 OutlinedTextField(
                     value = draft.displayName,
-                    onValueChange = { draft = draft.copy(displayName = it.take(24)) },
+                    onValueChange = { value ->
+                        val capitalized = value.replaceFirstChar { first ->
+                            if (first.isLowerCase()) first.titlecase() else first.toString()
+                        }
+                        draft = draft.copy(displayName = capitalized.take(24))
+                    },
                     label = { Text("Имя ребёнка") },
-                    placeholder = { Text("Ребёнок", color = LlColors.TextSecondary) },
-                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = if (!nameFocused) {
+                        { Text("Ребёнок", color = LlColors.TextSecondary) }
+                    } else null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged {
+                            nameFocused = it.isFocused
+                            if (!it.isFocused && !nameValid) {
+                                nameErrorShown = true
+                            }
+                        },
                     singleLine = true,
-                    isError = draft.displayName.isNotEmpty() && !nameValid,
+                    isError = nameErrorShown && !nameValid,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.Black,
@@ -105,7 +128,11 @@ fun SettingsScreen(
                         cursorColor = Color.Black,
                         focusedLabelColor = Color.Black,
                         unfocusedLabelColor = Color.Black,
-                        focusedBorderColor = LlColors.MintDeep
+                        focusedBorderColor = Color.Black,
+                        unfocusedBorderColor = Color.Black,
+                        errorTextColor = Color.Black,
+                        errorBorderColor = LlColors.Coral,
+                        errorFocusedBorderColor = LlColors.Coral
                     )
                 )
                 if (!nameValid) {
@@ -154,7 +181,7 @@ fun SettingsScreen(
                             onClick = { draft = draft.copy(backgroundColor = index) },
                             label = { Text(label, maxLines = 1) },
                             leadingIcon = { androidx.compose.foundation.layout.Box(Modifier.size(14.dp).background(color, RoundedCornerShape(50))) },
-                            colors = chipColors
+                            colors = backgroundChipColors
                         )
                     }
                 }
@@ -251,8 +278,8 @@ fun SettingsScreen(
                 )
             }
 
-            LlPrimaryButton("Сохранить", onClick = { onSave(draft.copy(displayName = draft.displayName.trim())) }, enabled = nameValid, coral = true)
-            LlGhostButton("Назад", onClick = onBack, contentColor = LlColors.TextSecondary)
+            LlPrimaryButton("Сохранить", onClick = { onSave(draft.copy(displayName = draft.displayName.trim())) }, enabled = nameValid, coral = true, elevated = true)
+            LlGhostButton("Назад", onClick = onBack, contentColor = LlColors.TextSecondary, elevated = true)
             }
         }
     }

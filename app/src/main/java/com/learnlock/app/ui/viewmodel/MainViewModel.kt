@@ -62,6 +62,8 @@ class MainViewModel(
     fun setPin(pin: String) {
         viewModelScope.launch {
             repository.setParentPin(pin)
+            // При первом PIN используется стандартный интервал профиля — 5 минут.
+            repository.scheduleNextLaunch()
             uiState = uiState.copy(hasParentPin = true)
         }
     }
@@ -70,6 +72,7 @@ class MainViewModel(
     fun saveProfile(profile: ChildProfileEntity) {
         viewModelScope.launch {
             repository.saveProfile(profile)
+            repository.scheduleNextLaunch(profile)
             if (profile.lockEnabled) {
                 LockController.startMonitoring(getApplication())
             } else {

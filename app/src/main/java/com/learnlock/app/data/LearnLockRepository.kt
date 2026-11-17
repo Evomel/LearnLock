@@ -63,6 +63,15 @@ class LearnLockRepository(
         profileDao.upsert(profile)
     }
 
+    /** Рассчитывает момент следующего запуска после сохранения настроек или PIN. */
+    suspend fun scheduleNextLaunch(profile: ChildProfileEntity = getProfileOrDefault()) {
+        val intervalMinutes = profile.sessionMinutes.coerceAtLeast(5)
+        val nextLaunchAt = System.currentTimeMillis() +
+            TimeUnit.MINUTES.toMillis(intervalMinutes.toLong())
+        sessionStore.setUnlockedUntil(nextLaunchAt)
+        sessionStore.setConsecutiveWrong(0)
+    }
+
     suspend fun getProfileOrDefault(): ChildProfileEntity =
         profileDao.getProfile() ?: ChildProfileEntity().also { profileDao.upsert(it) }
 

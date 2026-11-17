@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
@@ -123,15 +124,24 @@ fun LlPrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    coral: Boolean = false
+    coral: Boolean = false,
+    elevated: Boolean = false
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
-            .height(54.dp),
+            .height(54.dp)
+            .then(if (elevated) Modifier.shadow(7.dp, ButtonShape) else Modifier),
         shape = ButtonShape,
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = if (elevated) 7.dp else 0.dp,
+            pressedElevation = if (elevated) 2.dp else 0.dp,
+            focusedElevation = if (elevated) 7.dp else 0.dp,
+            hoveredElevation = if (elevated) 9.dp else 0.dp,
+            disabledElevation = 0.dp
+        ),
         colors = ButtonDefaults.buttonColors(
             containerColor = if (coral) LlColors.Coral else LlColors.MintDeep,
             contentColor = LlColors.TextOnAccent,
@@ -151,14 +161,16 @@ fun LlGhostButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    contentColor: Color = LlColors.TextPrimary
+    contentColor: Color = LlColors.TextPrimary,
+    elevated: Boolean = false
 ) {
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp),
+            .height(52.dp)
+            .then(if (elevated) Modifier.shadow(7.dp, ButtonShape) else Modifier),
         shape = ButtonShape,
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = contentColor
