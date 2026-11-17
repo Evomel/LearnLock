@@ -57,6 +57,9 @@ fun HomeScreen(
     val untilText = if (sessionActive) {
         SimpleDateFormat("HH:mm", Locale.getDefault())
             .format(Date(state.session.unlockedUntilMillis))
+    } else if (state.session.nextLaunchAtMillis > 0L) {
+        SimpleDateFormat("HH:mm", Locale.getDefault())
+            .format(Date(state.session.nextLaunchAtMillis))
     } else {
         "—"
     }

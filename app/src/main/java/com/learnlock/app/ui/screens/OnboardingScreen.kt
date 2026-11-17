@@ -20,11 +20,12 @@ import com.learnlock.app.ui.theme.LlColors
 @Composable
 fun OnboardingScreen(
     hasPin: Boolean,
+    backgroundColor: Int = 0,
     onContinueToPin: () -> Unit,
     onContinueToPermissions: () -> Unit,
     onDone: () -> Unit
 ) {
-    LlBackground {
+    LlBackground(backgroundColor = backgroundColor) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

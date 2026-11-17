@@ -23,8 +23,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -125,7 +126,7 @@ fun LlPrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     coral: Boolean = false,
-    elevated: Boolean = false
+    elevated: Boolean = true
 ) {
     Button(
         onClick = onClick,
@@ -162,7 +163,7 @@ fun LlGhostButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     contentColor: Color = LlColors.TextPrimary,
-    elevated: Boolean = false
+    elevated: Boolean = true
 ) {
     OutlinedButton(
         onClick = onClick,
@@ -172,7 +173,9 @@ fun LlGhostButton(
             .height(52.dp)
             .then(if (elevated) Modifier.shadow(7.dp, ButtonShape) else Modifier),
         shape = ButtonShape,
+        border = BorderStroke(1.dp, LlColors.MistDeep.copy(alpha = 0.72f)),
         colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = LlColors.SurfaceElevated.copy(alpha = 0.92f),
             contentColor = contentColor
         )
     ) {

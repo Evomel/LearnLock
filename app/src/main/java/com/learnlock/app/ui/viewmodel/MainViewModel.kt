@@ -68,6 +68,13 @@ class MainViewModel(
         }
     }
 
+
+    fun verifySettingsPin(pin: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            onResult(repository.verifyParentPin(pin))
+        }
+    }
+
     /** Сохраняет профиль и синхронизирует foreground-мониторинг с [ChildProfileEntity.lockEnabled]. */
     fun saveProfile(profile: ChildProfileEntity) {
         viewModelScope.launch {

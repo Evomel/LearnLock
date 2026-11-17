@@ -70,6 +70,7 @@ class LearnLockRepository(
         val nextLaunchAt = System.currentTimeMillis() +
             TimeUnit.MINUTES.toMillis(intervalMinutes.toLong())
         sessionStore.setUnlockedUntil(nextLaunchAt)
+        sessionStore.setNextLaunchAt(nextLaunchAt)
         sessionStore.setConsecutiveWrong(0)
     }
 

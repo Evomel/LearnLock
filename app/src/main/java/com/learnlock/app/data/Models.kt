@@ -79,6 +79,7 @@ data class TaskAttemptEntity(
  */
 data class SessionState(
     val unlockedUntilMillis: Long = 0L,
+    val nextLaunchAtMillis: Long = 0L,
     val consecutiveWrong: Int = 0,
     val lastAccuracyWindow: Double = 0.7
 )

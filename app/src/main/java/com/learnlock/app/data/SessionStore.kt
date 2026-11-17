@@ -17,6 +17,7 @@ private val Context.sessionDataStore by preferencesDataStore("session")
  */
 class SessionStore(private val context: Context) {
     private val unlockedUntil = longPreferencesKey("unlocked_until")
+    private val nextLaunchAt = longPreferencesKey("next_launch_at")
     private val consecutiveWrong = intPreferencesKey("consecutive_wrong")
     private val accuracy = doublePreferencesKey("accuracy")
 
@@ -24,6 +25,7 @@ class SessionStore(private val context: Context) {
     val state: Flow<SessionState> = context.sessionDataStore.data.map { prefs ->
         SessionState(
             unlockedUntilMillis = prefs[unlockedUntil] ?: 0L,
+            nextLaunchAtMillis = prefs[nextLaunchAt] ?: 0L,
             consecutiveWrong = prefs[consecutiveWrong] ?: 0,
             lastAccuracyWindow = prefs[accuracy] ?: 0.7
         )
@@ -32,6 +34,10 @@ class SessionStore(private val context: Context) {
     /** Задаёт момент, до которого телефон свободен без задачи. */
     suspend fun setUnlockedUntil(millis: Long) {
         context.sessionDataStore.edit { it[unlockedUntil] = millis }
+    }
+
+    suspend fun setNextLaunchAt(millis: Long) {
+        context.sessionDataStore.edit { it[nextLaunchAt] = millis }
     }
 
     /** Обновляет счётчик подряд идущих ошибок. */
