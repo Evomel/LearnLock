@@ -11,6 +11,12 @@ import androidx.core.app.NotificationCompat
 import com.learnlock.app.LearnLockApp
 import com.learnlock.app.R
 import com.learnlock.app.ui.MainActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Foreground-сервис мониторинга.
@@ -19,6 +25,7 @@ import com.learnlock.app.ui.MainActivity
  */
 class LockMonitorService : Service() {
     private var screenReceiver: ScreenEventReceiver? = null
+    private val monitorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -37,6 +44,12 @@ class LockMonitorService : Service() {
             registerReceiver(receiver, filter)
         }
         screenReceiver = receiver
+        monitorScope.launch {
+            while (true) {
+                delay(15_000)
+                LockController.onScheduledCheck(this@LockMonitorService)
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -45,6 +58,7 @@ class LockMonitorService : Service() {
     }
 
     override fun onDestroy() {
+        monitorScope.cancel()
         screenReceiver?.let { runCatching { unregisterReceiver(it) } }
         screenReceiver = null
         super.onDestroy()

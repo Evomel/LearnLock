@@ -75,6 +75,10 @@ class MainViewModel(
         }
     }
 
+    fun refreshNextLaunchIfExpired() {
+        viewModelScope.launch { repository.refreshNextLaunchIfExpired() }
+    }
+
     /** Сохраняет профиль и синхронизирует foreground-мониторинг с [ChildProfileEntity.lockEnabled]. */
     fun saveProfile(profile: ChildProfileEntity) {
         viewModelScope.launch {
