@@ -56,15 +56,10 @@ fun HomeScreen(
     onOpenHelp: () -> Unit,
     onOpenPermissions: () -> Unit,
     onToggleLock: (Boolean) -> Unit,
-    onPreviewLock: () -> Unit,
-    onEndSession: () -> Unit
+    onPreviewLock: () -> Unit
 ) {
     val firstLaunch = !state.hasParentPin
-    val sessionActive = state.session.unlockedUntilMillis > System.currentTimeMillis()
-    val untilText = if (sessionActive) {
-        SimpleDateFormat("HH:mm", Locale.getDefault())
-            .format(Date(state.session.unlockedUntilMillis))
-    } else if (state.session.nextLaunchAtMillis > 0L) {
+    val untilText = if (state.session.nextLaunchAtMillis > 0L) {
         SimpleDateFormat("HH:mm", Locale.getDefault())
             .format(Date(state.session.nextLaunchAtMillis))
     } else {
@@ -160,9 +155,6 @@ fun HomeScreen(
                 LlGhostButton("Показать экран задачи", onClick = onPreviewLock)
                 LlGhostButton("Статистика за 7 дней", onClick = onOpenStats)
                 LlGhostButton("Права Android", onClick = onOpenPermissions)
-                if (sessionActive) {
-                    LlGhostButton("Завершить доступ", onClick = onEndSession)
-                }
 
                 Spacer(Modifier.height(8.dp))
                 Text(

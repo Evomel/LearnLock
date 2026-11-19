@@ -202,14 +202,14 @@ fun SettingsScreen(
                     colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
                 )
 
-                Text("Открывать телефон после правильного ответа на: ${draft.accessDurationMinutes} мин", style = MaterialTheme.typography.titleMedium)
+                Text("Выполнить ${draft.tasksToUnlock} заданий для разблокировки", style = MaterialTheme.typography.titleMedium)
                 Slider(
-                    value = draft.accessDurationMinutes.toFloat(),
+                    value = draft.tasksToUnlock.toFloat(),
                     onValueChange = {
-                        draft = draft.copy(accessDurationMinutes = it.roundToInt().coerceIn(1, 60))
+                        draft = draft.copy(tasksToUnlock = it.roundToInt().coerceIn(1, 20))
                     },
-                    valueRange = 1f..60f,
-                    steps = 11,
+                    valueRange = 1f..20f,
+                    steps = 18,
                     colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
                 )
                 if (nextLaunchAtMillis > 0L) {
@@ -302,7 +302,7 @@ fun SettingsScreen(
 
             LlPrimaryButton("Сохранить", onClick = { onSave(draft.copy(displayName = draft.displayName.trim())) }, enabled = nameValid, coral = true, elevated = true)
             LlGhostButton("Изменить PIN", onClick = onChangePin)
-            LlGhostButton("Сбросить PIN", onClick = { resetDialogVisible = true }, contentColor = LlColors.Coral)
+            LlGhostButton("Сбросить PIN", onClick = { resetDialogVisible = true }, contentColor = LlColors.TextSecondary)
             LlGhostButton("Назад", onClick = onBack, contentColor = LlColors.TextSecondary, elevated = true)
             if (resetDialogVisible) {
                 AlertDialog(

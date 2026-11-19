@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.app.AlarmManager
 import android.app.PendingIntent
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import android.os.Build
 import android.provider.Settings
 import com.learnlock.app.LearnLockApp
@@ -21,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object LockController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val lockVisible = AtomicBoolean(false)
+    private val launchNotificationShown = AtomicBoolean(false)
 
     /** Запускает foreground-сервис, слушающий пробуждение экрана. */
     fun startMonitoring(context: Context) {
@@ -69,6 +72,7 @@ object LockController {
         val app = appContext as? LearnLockApp ?: return
         scope.launch {
             if (app.container.repository.shouldPresentLock()) {
+                showLaunchNotification(appContext)
                 presentLock(appContext)
             }
         }
@@ -94,8 +98,32 @@ object LockController {
         context.startActivity(intent)
     }
 
+    fun showLaunchNotification(context: Context) {
+        if (!launchNotificationShown.compareAndSet(false, true)) return
+        val intent = Intent(context, LockActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            1003,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, LearnLockApp.LAUNCH_CHANNEL_ID)
+            .setSmallIcon(com.learnlock.app.R.drawable.ic_launcher)
+            .setContentTitle("Время задания")
+            .setContentText("Решите задания, чтобы открыть телефон")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setFullScreenIntent(pendingIntent, true)
+            .build()
+        NotificationManagerCompat.from(context).notify(1003, notification)
+    }
+
     fun onLockActivityClosed() {
         lockVisible.set(false)
+        launchNotificationShown.set(false)
     }
 
     /** Есть ли разрешение «поверх других окон» (задел; MVP стартует Activity). */

@@ -87,8 +87,8 @@ class LearnLockRepository(
         val intervalMinutes = currentProfile.launchIntervalMinutes.coerceAtLeast(5)
         val nextLaunchAt = System.currentTimeMillis() +
             TimeUnit.MINUTES.toMillis(intervalMinutes.toLong())
-        sessionStore.setUnlockedUntil(nextLaunchAt)
         sessionStore.setNextLaunchAt(nextLaunchAt)
+        sessionStore.setTasksSolved(0)
         sessionStore.setConsecutiveWrong(0)
     }
 
@@ -105,7 +105,7 @@ class LearnLockRepository(
     /** true, если сейчас действует свободный доступ после решения задачи. */
     suspend fun isSessionActive(): Boolean {
         val state = sessionStore.state.first()
-        return state.unlockedUntilMillis > System.currentTimeMillis()
+        return state.nextLaunchAtMillis > System.currentTimeMillis()
     }
 
     /**
@@ -117,8 +117,8 @@ class LearnLockRepository(
     suspend fun shouldPresentLock(): Boolean {
         val profile = getProfileOrDefault()
         if (!profile.lockEnabled) return false
-        if (isSessionActive()) return false
-        return true
+        val session = sessionStore.state.first()
+        return session.nextLaunchAtMillis == 0L || session.nextLaunchAtMillis <= System.currentTimeMillis()
     }
 
     /** Генерирует следующую задачу с учётом возраста, точности и слабых навыков. */
@@ -166,19 +166,13 @@ class LearnLockRepository(
     }
 
     /** Верный ответ: открывает сессию на [ChildProfileEntity.sessionMinutes] минут. */
-    suspend fun onCorrectAnswer(task: Task, usedHint: Boolean) {
-        val profile = getProfileOrDefault()
-        val now = System.currentTimeMillis()
-        val until = now + TimeUnit.MINUTES.toMillis(profile.accessDurationMinutes.coerceAtLeast(1).toLong())
-        val nextLaunch = maxOf(
-            until,
-            now + TimeUnit.MINUTES.toMillis(profile.launchIntervalMinutes.coerceAtLeast(5).toLong())
-        )
-        sessionStore.setUnlockedUntil(until)
-        sessionStore.setNextLaunchAt(nextLaunch)
+    suspend fun onCorrectAnswer(task: Task, usedHint: Boolean): Int {
+        val solved = sessionStore.state.first().tasksSolved + 1
+        sessionStore.setTasksSolved(solved)
         sessionStore.setConsecutiveWrong(0)
         insertAttempt(task, correct = true, usedHint = usedHint, usedParentUnlock = false)
         refreshAccuracy()
+        return solved
     }
 
     /** Неверный ответ: увеличивает счётчик ошибок, сессию не открывает. */
@@ -196,14 +190,7 @@ class LearnLockRepository(
     suspend fun unlockWithParentPin(pin: String): Boolean {
         if (!verifyParentPin(pin).valid) return false
         val profile = getProfileOrDefault()
-        val now = System.currentTimeMillis()
-        val until = now + TimeUnit.MINUTES.toMillis(profile.accessDurationMinutes.coerceAtLeast(1).toLong())
-        val nextLaunch = maxOf(
-            until,
-            now + TimeUnit.MINUTES.toMillis(profile.launchIntervalMinutes.coerceAtLeast(5).toLong())
-        )
-        sessionStore.setUnlockedUntil(until)
-        sessionStore.setNextLaunchAt(nextLaunch)
+        sessionStore.setTasksSolved(profile.tasksToUnlock.coerceAtLeast(1))
         sessionStore.setConsecutiveWrong(0)
         statsDao.insert(
             TaskAttemptEntity(
