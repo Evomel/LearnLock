@@ -54,10 +54,28 @@ class LearnLockRepository(
     }
 
     /** Проверяет введённый PIN родителя. */
-    suspend fun verifyParentPin(pin: String): Boolean {
-        val entity = parentAuthDao.get() ?: return false
-        return PinHasher.matches(pin, entity)
+    suspend fun verifyParentPin(pin: String): ParentPinVerification {
+        val entity = parentAuthDao.get() ?: return ParentPinVerification(valid = false)
+        val now = System.currentTimeMillis()
+        if (entity.lockedUntilMillis > now) {
+            return ParentPinVerification(valid = false, lockedUntilMillis = entity.lockedUntilMillis)
+        }
+        if (PinHasher.matches(pin, entity)) {
+            parentAuthDao.upsert(entity.copy(failedAttempts = 0, lockedUntilMillis = 0L))
+            return ParentPinVerification(valid = true)
+        }
+        val attempts = entity.failedAttempts + 1
+        val lockedUntil = if (attempts >= 3) now + TimeUnit.SECONDS.toMillis(30) else 0L
+        parentAuthDao.upsert(
+            entity.copy(
+                failedAttempts = if (lockedUntil > 0L) 0 else attempts,
+                lockedUntilMillis = lockedUntil
+            )
+        )
+        return ParentPinVerification(valid = false, lockedUntilMillis = lockedUntil)
     }
+
+    suspend fun clearParentPin() = parentAuthDao.delete()
 
     suspend fun saveProfile(profile: ChildProfileEntity) {
         profileDao.upsert(profile)
@@ -152,7 +170,10 @@ class LearnLockRepository(
         val profile = getProfileOrDefault()
         val now = System.currentTimeMillis()
         val until = now + TimeUnit.MINUTES.toMillis(profile.accessDurationMinutes.coerceAtLeast(1).toLong())
-        val nextLaunch = now + TimeUnit.MINUTES.toMillis(profile.launchIntervalMinutes.coerceAtLeast(5).toLong())
+        val nextLaunch = maxOf(
+            until,
+            now + TimeUnit.MINUTES.toMillis(profile.launchIntervalMinutes.coerceAtLeast(5).toLong())
+        )
         sessionStore.setUnlockedUntil(until)
         sessionStore.setNextLaunchAt(nextLaunch)
         sessionStore.setConsecutiveWrong(0)
@@ -173,11 +194,14 @@ class LearnLockRepository(
      * @return true, если PIN верен и сессия открыта
      */
     suspend fun unlockWithParentPin(pin: String): Boolean {
-        if (!verifyParentPin(pin)) return false
+        if (!verifyParentPin(pin).valid) return false
         val profile = getProfileOrDefault()
         val now = System.currentTimeMillis()
         val until = now + TimeUnit.MINUTES.toMillis(profile.accessDurationMinutes.coerceAtLeast(1).toLong())
-        val nextLaunch = now + TimeUnit.MINUTES.toMillis(profile.launchIntervalMinutes.coerceAtLeast(5).toLong())
+        val nextLaunch = maxOf(
+            until,
+            now + TimeUnit.MINUTES.toMillis(profile.launchIntervalMinutes.coerceAtLeast(5).toLong())
+        )
         sessionStore.setUnlockedUntil(until)
         sessionStore.setNextLaunchAt(nextLaunch)
         sessionStore.setConsecutiveWrong(0)

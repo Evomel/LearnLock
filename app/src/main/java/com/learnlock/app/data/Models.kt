@@ -59,7 +59,14 @@ enum class OutsideWindowMode {
 data class ParentAuthEntity(
     @PrimaryKey val id: Int = 1,
     val pinHash: String,
-    val salt: String
+    val salt: String,
+    val failedAttempts: Int = 0,
+    val lockedUntilMillis: Long = 0L
+)
+
+data class ParentPinVerification(
+    val valid: Boolean,
+    val lockedUntilMillis: Long = 0L
 )
 
 /** Одна попытка решения (или parent unlock) для статистики и адаптации. */

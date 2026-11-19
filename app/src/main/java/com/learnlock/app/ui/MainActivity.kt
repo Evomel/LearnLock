@@ -113,11 +113,13 @@ private fun LearnLockNav(app: LearnLockApp) {
                 error = error,
                 onVerify = { pin ->
                     vm.verifySettingsPin(pin) { valid ->
-                        if (valid) {
+                if (valid.valid) {
                             error = null
                             navController.navigate("settings") { popUpTo("settings_pin") { inclusive = true } }
                         } else {
-                            error = "Неверный PIN"
+                    error = if (valid.lockedUntilMillis > System.currentTimeMillis()) {
+                        "Слишком много ошибок. Повторите через 30 секунд."
+                    } else "Неверный PIN"
                         }
                     }
                 },
@@ -129,6 +131,11 @@ private fun LearnLockNav(app: LearnLockApp) {
             SettingsScreen(
                 profile = vm.uiState.profile,
                 nextLaunchAtMillis = vm.uiState.session.nextLaunchAtMillis,
+                onChangePin = { navController.navigate("pin_setup") },
+                onResetPin = {
+                    vm.clearParentPin()
+                    navController.navigate("onboarding") { popUpTo("settings") { inclusive = true } }
+                },
                 onSave = { profile ->
                     vm.saveProfile(profile)
                     navController.popBackStack()
