@@ -2,6 +2,7 @@ package com.learnlock.app.ui.screens
 
 import android.content.ComponentName
 import android.content.Context
+import android.app.AlarmManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -42,11 +43,12 @@ import com.learnlock.app.ui.theme.LlColors
  * Статусы обновляются при возврате на экран (Lifecycle.ON_RESUME).
  */
 @Composable
-fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit) {
+fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit, onContinue: (() -> Unit)? = null) {
     val context = LocalContext.current
     var overlay by remember { mutableStateOf(LockController.canDrawOverlays(context)) }
     var accessibility by remember { mutableStateOf(isAccessibilityEnabled(context)) }
     var batteryIgnored by remember { mutableStateOf(isIgnoringBattery(context)) }
+    var exactAlarms by remember { mutableStateOf(canScheduleExactAlarms(context)) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -55,6 +57,7 @@ fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit) {
                 overlay = LockController.canDrawOverlays(context)
                 accessibility = isAccessibilityEnabled(context)
                 batteryIgnored = isIgnoringBattery(context)
+                exactAlarms = canScheduleExactAlarms(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -78,6 +81,13 @@ fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit) {
             )
 
             LlPanel {
+                if (!overlay || !accessibility || !batteryIgnored || !exactAlarms) {
+                    Text(
+                        "Без включённых прав программа не сможет автоматически запускать задания.",
+                        color = LlColors.Coral,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
                 Text("Поверх окон: ${status(overlay)}", style = MaterialTheme.typography.titleMedium)
                 LlPrimaryButton(
                     text = "Открыть overlay",
@@ -112,6 +122,19 @@ fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit) {
                         }
                     }
                 )
+
+                Text("Точные запуски по времени: ${status(exactAlarms)}", style = MaterialTheme.typography.titleMedium)
+                LlPrimaryButton(
+                    text = "Разрешить точные запуски",
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            })
+                        }
+                    },
+                    enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !exactAlarms
+                )
             }
 
             Text(
@@ -119,6 +142,14 @@ fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = LlColors.TextSecondary
             )
+            Text(
+                "Если Samsung сообщает, что Accessibility заблокирована, откройте Настройки → Приложения → LearnLock → меню ⋮ → Разрешить ограниченные настройки, затем снова включите Accessibility.",
+                style = MaterialTheme.typography.bodySmall,
+                color = LlColors.TextSecondary
+            )
+            onContinue?.let { continueAction ->
+                LlPrimaryButton("Продолжить", onClick = continueAction)
+            }
             LlGhostButton("Назад", onClick = onBack)
         }
     }
@@ -141,4 +172,9 @@ private fun isIgnoringBattery(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun canScheduleExactAlarms(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+    return context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 }

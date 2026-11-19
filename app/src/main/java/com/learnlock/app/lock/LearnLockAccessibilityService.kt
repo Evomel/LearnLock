@@ -24,6 +24,7 @@ class LearnLockAccessibilityService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
         // Игнорируем собственные окна LearnLock, чтобы не зациклиться.
         if (pkg == packageName) return
+        if (pkg in allowedPackages) return
         val app = application as? LearnLockApp ?: return
         scope.launch {
             if (app.container.repository.shouldPresentLock()) {
@@ -33,4 +34,12 @@ class LearnLockAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() = Unit
+
+    private val allowedPackages = setOf(
+        "com.android.contacts",
+        "com.google.android.contacts",
+        "com.android.mms",
+        "com.google.android.apps.messaging",
+        "com.samsung.android.messaging"
+    )
 }

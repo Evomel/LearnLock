@@ -15,9 +15,12 @@ class LaunchAlarmReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.Default).launch {
             try {
                 val app = appContext as? LearnLockApp ?: return@launch
+                LockController.startMonitoring(appContext)
                 if (app.container.repository.shouldPresentLock()) {
+                    LockController.showLaunchNotification(appContext)
                     LockController.presentLock(appContext)
                 }
+                LockController.scheduleNextLaunch(appContext)
             } finally {
                 pending.finish()
             }

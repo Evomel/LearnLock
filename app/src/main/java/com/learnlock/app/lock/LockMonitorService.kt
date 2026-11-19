@@ -44,6 +44,8 @@ class LockMonitorService : Service() {
             registerReceiver(receiver, filter)
         }
         screenReceiver = receiver
+        LockController.scheduleNextLaunch(this)
+        LockController.onScheduledCheck(this)
         monitorScope.launch {
             while (true) {
                 delay(15_000)

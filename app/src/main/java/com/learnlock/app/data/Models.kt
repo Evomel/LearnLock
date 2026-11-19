@@ -21,11 +21,12 @@ data class ChildProfileEntity(
     /** Смещение сложности: −1 легче, 0 норма, +1 сложнее. */
     val difficultyOffset: Int = 0,
     /** Минуты свободного пользования после решения / parent PIN. */
-    val sessionMinutes: Int = 5,
+    val sessionMinutes: Int = 30,
     /** Интервал между автоматическими запусками заданий. */
-    val launchIntervalMinutes: Int = 5,
+    val launchIntervalMinutes: Int = 30,
     /** Длительность доступа после правильного ответа. */
     val accessDurationMinutes: Int = 5,
+    val tasksToUnlock: Int = 10,
     /** Вариант фона главного и экранов настроек. */
     val backgroundColor: Int = 0,
     val activeWindowStartHour: Int = 7,
@@ -91,6 +92,7 @@ data class TaskAttemptEntity(
 data class SessionState(
     val unlockedUntilMillis: Long = 0L,
     val nextLaunchAtMillis: Long = 0L,
+    val tasksSolved: Int = 0,
     val consecutiveWrong: Int = 0,
     val lastAccuracyWindow: Double = 0.7
 )

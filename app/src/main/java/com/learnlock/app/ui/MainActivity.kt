@@ -78,8 +78,7 @@ private fun LearnLockNav(app: LearnLockApp) {
                 onOpenHelp = { navController.navigate("help") },
                 onOpenPermissions = { navController.navigate("permissions") },
                 onToggleLock = { enabled -> vm.setLockEnabled(enabled) },
-                onPreviewLock = { vm.previewLock() },
-                onEndSession = { vm.endSession() }
+                onPreviewLock = { vm.previewLock() }
             )
         }
         composable("onboarding") {
@@ -96,7 +95,7 @@ private fun LearnLockNav(app: LearnLockApp) {
                 backgroundColor = vm.uiState.profile.backgroundColor,
                 onSave = { pin ->
                     vm.setPin(pin)
-                    navController.navigate("settings") {
+                    navController.navigate("permissions_first") {
                         popUpTo("onboarding")
                     }
                 },
@@ -116,7 +115,17 @@ private fun LearnLockNav(app: LearnLockApp) {
             )
         }
         composable("permissions") {
-            PermissionsScreen(backgroundColor = vm.uiState.profile.backgroundColor, onBack = { navController.popBackStack() })
+            PermissionsScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("permissions_first") {
+            PermissionsScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                onBack = { navController.popBackStack() },
+                onContinue = { navController.navigate("settings") { popUpTo("permissions_first") { inclusive = true } } }
+            )
         }
         composable("settings_pin") {
             var error by remember { mutableStateOf<String?>(null) }

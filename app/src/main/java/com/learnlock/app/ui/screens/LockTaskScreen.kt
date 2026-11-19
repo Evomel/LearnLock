@@ -94,6 +94,11 @@ fun LockTaskScreen(
                 light = true,
                 subtitle = "Реши задачу — и телефон снова твой"
             )
+            Text(
+                "Решено: ${state.tasksSolved} из ${state.tasksRequired}",
+                color = LlColors.Mist,
+                style = MaterialTheme.typography.titleMedium
+            )
 
             AnimatedContent(
                 targetState = state.task?.id to state.unlocked,

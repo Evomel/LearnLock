@@ -13,6 +13,7 @@ import com.learnlock.app.lock.LockController
 import com.learnlock.taskengine.Task
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 /** Состояние экрана задачи ([com.learnlock.app.ui.screens.LockTaskScreen]). */
 data class LockUiState(
@@ -25,7 +26,9 @@ data class LockUiState(
     /** Пауза после ошибки, сек. */
     val cooldownSeconds: Int = 0,
     val showParentPin: Boolean = false,
-    val unlocked: Boolean = false
+    val unlocked: Boolean = false,
+    val tasksSolved: Int = 0,
+    val tasksRequired: Int = 1
 )
 
 /**
@@ -46,6 +49,7 @@ class LockViewModel(
     fun load(forcePreview: Boolean = false) {
         viewModelScope.launch {
             val profile = repository.getProfileOrDefault()
+            val session = repository.observeSession().first()
             // Preview с главного экрана всегда показывает задачу.
             if (!forcePreview && repository.isSessionActive()) {
                 uiState = uiState.copy(loading = false, unlocked = true, profile = profile)
@@ -59,6 +63,8 @@ class LockViewModel(
                 loading = false,
                 unlocked = false,
                 profile = profile,
+                tasksSolved = session.tasksSolved,
+                tasksRequired = profile.tasksToUnlock.coerceAtLeast(1),
                 task = task,
                 feedback = if (forcePreview) "Режим проверки задачи" else null
             )
@@ -85,12 +91,15 @@ class LockViewModel(
         if (uiState.cooldownSeconds > 0 || uiState.unlocked) return
         viewModelScope.launch {
             if (task.matches(raw)) {
-                repository.onCorrectAnswer(task, uiState.hintUsed)
-                LockController.scheduleNextLaunch(application)
-                uiState = uiState.copy(
-                    unlocked = true,
-                    feedback = "Отлично! Телефон открыт на ${uiState.profile.accessDurationMinutes} мин."
-                )
+                val solved = repository.onCorrectAnswer(task, uiState.hintUsed)
+                val completed = solved >= uiState.tasksRequired
+                if (completed) {
+                    repository.scheduleNextLaunch(uiState.profile)
+                    LockController.scheduleNextLaunch(application)
+                    uiState = uiState.copy(unlocked = true, tasksSolved = solved, feedback = "Все задания решены. Телефон разблокирован.")
+                } else {
+                    uiState = uiState.copy(tasksSolved = solved, task = repository.nextTask(), hintVisible = false, hintUsed = false, feedback = "Верно. Осталось заданий: ${uiState.tasksRequired - solved}")
+                }
             } else {
                 repository.onWrongAnswer(task, uiState.hintUsed)
                 uiState = uiState.copy(feedback = "Неверно. Попробуй ещё раз.")
