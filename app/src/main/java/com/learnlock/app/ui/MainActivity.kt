@@ -103,6 +103,18 @@ private fun LearnLockNav(app: LearnLockApp) {
                 onBack = { navController.popBackStack() }
             )
         }
+        composable("change_pin") {
+            ParentPinSetupScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                onSave = { pin ->
+                    vm.setPin(pin)
+                    navController.navigate("settings") {
+                        popUpTo("change_pin") { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
         composable("permissions") {
             PermissionsScreen(backgroundColor = vm.uiState.profile.backgroundColor, onBack = { navController.popBackStack() })
         }
@@ -131,7 +143,7 @@ private fun LearnLockNav(app: LearnLockApp) {
             SettingsScreen(
                 profile = vm.uiState.profile,
                 nextLaunchAtMillis = vm.uiState.session.nextLaunchAtMillis,
-                onChangePin = { navController.navigate("pin_setup") },
+                onChangePin = { navController.navigate("change_pin") },
                 onResetPin = {
                     vm.clearParentPin()
                     navController.navigate("onboarding") { popUpTo("settings") { inclusive = true } }
