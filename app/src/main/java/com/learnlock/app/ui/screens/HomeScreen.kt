@@ -113,7 +113,7 @@ fun HomeScreen(
                     color = LlColors.TextPrimary
                 )
                 Text(
-                    "${state.profile.displayName} · ${state.profile.ageYears} лет · запускать каждые ${state.profile.sessionMinutes} мин",
+                    "${state.profile.displayName} · ${state.profile.ageYears} лет · запускать каждые ${state.profile.launchIntervalMinutes} мин",
                     style = MaterialTheme.typography.bodyMedium,
                     color = LlColors.TextSecondary
                 )

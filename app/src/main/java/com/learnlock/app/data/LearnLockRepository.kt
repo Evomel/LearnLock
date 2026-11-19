@@ -66,7 +66,7 @@ class LearnLockRepository(
     /** Рассчитывает момент следующего запуска после сохранения настроек или PIN. */
     suspend fun scheduleNextLaunch(profile: ChildProfileEntity? = null) {
         val currentProfile = profile ?: getProfileOrDefault()
-        val intervalMinutes = currentProfile.sessionMinutes.coerceAtLeast(5)
+        val intervalMinutes = currentProfile.launchIntervalMinutes.coerceAtLeast(5)
         val nextLaunchAt = System.currentTimeMillis() +
             TimeUnit.MINUTES.toMillis(intervalMinutes.toLong())
         sessionStore.setUnlockedUntil(nextLaunchAt)
@@ -150,9 +150,11 @@ class LearnLockRepository(
     /** Верный ответ: открывает сессию на [ChildProfileEntity.sessionMinutes] минут. */
     suspend fun onCorrectAnswer(task: Task, usedHint: Boolean) {
         val profile = getProfileOrDefault()
-        val until = System.currentTimeMillis() +
-            TimeUnit.MINUTES.toMillis(profile.sessionMinutes.toLong())
+        val now = System.currentTimeMillis()
+        val until = now + TimeUnit.MINUTES.toMillis(profile.accessDurationMinutes.coerceAtLeast(1).toLong())
+        val nextLaunch = now + TimeUnit.MINUTES.toMillis(profile.launchIntervalMinutes.coerceAtLeast(5).toLong())
         sessionStore.setUnlockedUntil(until)
+        sessionStore.setNextLaunchAt(nextLaunch)
         sessionStore.setConsecutiveWrong(0)
         insertAttempt(task, correct = true, usedHint = usedHint, usedParentUnlock = false)
         refreshAccuracy()
@@ -173,9 +175,11 @@ class LearnLockRepository(
     suspend fun unlockWithParentPin(pin: String): Boolean {
         if (!verifyParentPin(pin)) return false
         val profile = getProfileOrDefault()
-        val until = System.currentTimeMillis() +
-            TimeUnit.MINUTES.toMillis(profile.sessionMinutes.toLong())
+        val now = System.currentTimeMillis()
+        val until = now + TimeUnit.MINUTES.toMillis(profile.accessDurationMinutes.coerceAtLeast(1).toLong())
+        val nextLaunch = now + TimeUnit.MINUTES.toMillis(profile.launchIntervalMinutes.coerceAtLeast(5).toLong())
         sessionStore.setUnlockedUntil(until)
+        sessionStore.setNextLaunchAt(nextLaunch)
         sessionStore.setConsecutiveWrong(0)
         statsDao.insert(
             TaskAttemptEntity(

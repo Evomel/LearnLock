@@ -22,6 +22,10 @@ data class ChildProfileEntity(
     val difficultyOffset: Int = 0,
     /** Минуты свободного пользования после решения / parent PIN. */
     val sessionMinutes: Int = 5,
+    /** Интервал между автоматическими запусками заданий. */
+    val launchIntervalMinutes: Int = 5,
+    /** Длительность доступа после правильного ответа. */
+    val accessDurationMinutes: Int = 5,
     /** Вариант фона главного и экранов настроек. */
     val backgroundColor: Int = 0,
     val activeWindowStartHour: Int = 7,

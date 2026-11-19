@@ -57,6 +57,7 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsScreen(
     profile: ChildProfileEntity,
+    nextLaunchAtMillis: Long = 0L,
     onSave: (ChildProfileEntity) -> Unit,
     onBack: () -> Unit
 ) {
@@ -185,16 +186,33 @@ fun SettingsScreen(
                     }
                 }
 
-                Text("Запускать каждые: ${draft.sessionMinutes} мин", style = MaterialTheme.typography.titleMedium)
+                Text("Запускать каждые: ${draft.launchIntervalMinutes} мин", style = MaterialTheme.typography.titleMedium)
                 Slider(
-                    value = draft.sessionMinutes.toFloat(),
+                    value = draft.launchIntervalMinutes.toFloat(),
                     onValueChange = {
-                        draft = draft.copy(sessionMinutes = it.roundToInt().coerceIn(5, 60))
+                        draft = draft.copy(launchIntervalMinutes = it.roundToInt().coerceIn(5, 60))
                     },
                     valueRange = 5f..60f,
                     steps = 10,
                     colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
                 )
+
+                Text("Открывать телефон после правильного ответа на: ${draft.accessDurationMinutes} мин", style = MaterialTheme.typography.titleMedium)
+                Slider(
+                    value = draft.accessDurationMinutes.toFloat(),
+                    onValueChange = {
+                        draft = draft.copy(accessDurationMinutes = it.roundToInt().coerceIn(1, 60))
+                    },
+                    valueRange = 1f..60f,
+                    steps = 11,
+                    colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
+                )
+                if (nextLaunchAtMillis > 0L) {
+                    Text(
+                        "Следующий запуск: ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(nextLaunchAtMillis))}",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
 
                 Text("Окно: ${draft.activeWindowStartHour}:00–${draft.activeWindowEndHour}:00")
                 Slider(

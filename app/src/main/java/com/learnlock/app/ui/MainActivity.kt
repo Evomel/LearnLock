@@ -128,6 +128,7 @@ private fun LearnLockNav(app: LearnLockApp) {
             LaunchedEffect(Unit) { vm.refreshNextLaunchIfExpired() }
             SettingsScreen(
                 profile = vm.uiState.profile,
+                nextLaunchAtMillis = vm.uiState.session.nextLaunchAtMillis,
                 onSave = { profile ->
                     vm.saveProfile(profile)
                     navController.popBackStack()
