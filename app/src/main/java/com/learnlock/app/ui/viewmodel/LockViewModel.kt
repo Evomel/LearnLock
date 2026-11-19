@@ -1,5 +1,6 @@
 package com.learnlock.app.ui.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -8,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.learnlock.app.data.ChildProfileEntity
 import com.learnlock.app.data.LearnLockRepository
+import com.learnlock.app.lock.LockController
 import com.learnlock.taskengine.Task
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -31,6 +33,7 @@ data class LockUiState(
  * подсказка и parent unlock.
  */
 class LockViewModel(
+    private val application: Application,
     private val repository: LearnLockRepository
 ) : ViewModel() {
     var uiState by mutableStateOf(LockUiState())
@@ -83,6 +86,7 @@ class LockViewModel(
         viewModelScope.launch {
             if (task.matches(raw)) {
                 repository.onCorrectAnswer(task, uiState.hintUsed)
+                LockController.scheduleNextLaunch(application)
                 uiState = uiState.copy(
                     unlocked = true,
                     feedback = "Отлично! Телефон открыт на ${uiState.profile.accessDurationMinutes} мин."
@@ -108,6 +112,7 @@ class LockViewModel(
     fun parentUnlock(pin: String) {
         viewModelScope.launch {
             val ok = repository.unlockWithParentPin(pin)
+            if (ok) LockController.scheduleNextLaunch(application)
             uiState = if (ok) {
                 uiState.copy(
                     unlocked = true,
@@ -127,12 +132,13 @@ class LockViewModel(
 
 /** Фабрика [LockViewModel] с инъекцией репозитория. */
 class LockViewModelFactory(
+    private val application: Application,
     private val repository: LearnLockRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(LockViewModel::class.java)) {
-            return LockViewModel(repository) as T
+            return LockViewModel(application, repository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel ${modelClass.name}")
     }

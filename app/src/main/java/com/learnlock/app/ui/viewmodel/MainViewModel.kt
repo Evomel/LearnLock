@@ -12,6 +12,7 @@ import com.learnlock.app.data.ChildProfileEntity
 import com.learnlock.app.data.LearnLockRepository
 import com.learnlock.app.data.SessionState
 import com.learnlock.app.data.TaskAttemptEntity
+import com.learnlock.app.data.ParentPinVerification
 import com.learnlock.app.lock.LockController
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -64,17 +65,22 @@ class MainViewModel(
     fun setPin(pin: String) {
         viewModelScope.launch {
             repository.setParentPin(pin)
-            // При первом PIN используется стандартный интервал профиля — 5 минут.
-            repository.scheduleNextLaunch()
-            LockController.scheduleNextLaunch(getApplication())
+            planNextLaunch()
             uiState = uiState.copy(hasParentPin = true)
         }
     }
 
 
-    fun verifySettingsPin(pin: String, onResult: (Boolean) -> Unit) {
+    fun verifySettingsPin(pin: String, onResult: (ParentPinVerification) -> Unit) {
         viewModelScope.launch {
             onResult(repository.verifyParentPin(pin))
+        }
+    }
+
+    fun clearParentPin() {
+        viewModelScope.launch {
+            repository.clearParentPin()
+            uiState = uiState.copy(hasParentPin = false)
         }
     }
 
@@ -86,8 +92,7 @@ class MainViewModel(
     fun saveProfile(profile: ChildProfileEntity) {
         viewModelScope.launch {
             repository.saveProfile(profile)
-            repository.scheduleNextLaunch(profile)
-            LockController.scheduleNextLaunch(getApplication())
+            planNextLaunch(profile)
             if (profile.lockEnabled) {
                 LockController.startMonitoring(getApplication())
             } else {
@@ -107,6 +112,11 @@ class MainViewModel(
 
     fun endSession() {
         viewModelScope.launch { repository.endSessionNow() }
+    }
+
+    private suspend fun planNextLaunch(profile: ChildProfileEntity? = null) {
+        repository.scheduleNextLaunch(profile)
+        LockController.scheduleNextLaunch(getApplication())
     }
 }
 

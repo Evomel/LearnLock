@@ -17,6 +17,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +61,8 @@ fun SettingsScreen(
     profile: ChildProfileEntity,
     nextLaunchAtMillis: Long = 0L,
     onSave: (ChildProfileEntity) -> Unit,
+    onChangePin: () -> Unit = {},
+    onResetPin: () -> Unit = {},
     onBack: () -> Unit
 ) {
     var draft by remember(profile) {
@@ -67,6 +71,7 @@ fun SettingsScreen(
     val nameValid = draft.displayName.trim().length >= 2
     var nameFocused by remember { mutableStateOf(false) }
     var nameErrorShown by remember { mutableStateOf(false) }
+    var resetDialogVisible by remember { mutableStateOf(false) }
     val chipColors = FilterChipDefaults.filterChipColors(
         selectedContainerColor = LlColors.MintDeep,
         selectedLabelColor = LlColors.TextOnAccent,
@@ -296,7 +301,22 @@ fun SettingsScreen(
             }
 
             LlPrimaryButton("Сохранить", onClick = { onSave(draft.copy(displayName = draft.displayName.trim())) }, enabled = nameValid, coral = true, elevated = true)
+            LlGhostButton("Изменить PIN", onClick = onChangePin)
+            LlGhostButton("Сбросить PIN", onClick = { resetDialogVisible = true }, contentColor = LlColors.Coral)
             LlGhostButton("Назад", onClick = onBack, contentColor = LlColors.TextSecondary, elevated = true)
+            if (resetDialogVisible) {
+                AlertDialog(
+                    onDismissRequest = { resetDialogVisible = false },
+                    title = { Text("Сбросить PIN родителя?") },
+                    text = { Text("После сброса потребуется создать новый PIN.") },
+                    confirmButton = {
+                        TextButton(onClick = { resetDialogVisible = false; onResetPin() }) { Text("Сбросить") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { resetDialogVisible = false }) { Text("Отмена") }
+                    }
+                )
+            }
             }
         }
     }

@@ -52,7 +52,7 @@ class LockActivity : ComponentActivity() {
         setContent {
             LearnLockTheme {
                 val vm: LockViewModel = viewModel(
-                    factory = LockViewModelFactory(app.container.repository)
+                    factory = LockViewModelFactory(app, app.container.repository)
                 )
                 LaunchedEffect(forcePreview) { vm.load(forcePreview = forcePreview) }
                 LockTaskScreen(
