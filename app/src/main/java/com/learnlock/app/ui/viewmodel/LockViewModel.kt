@@ -85,7 +85,7 @@ class LockViewModel(
                 repository.onCorrectAnswer(task, uiState.hintUsed)
                 uiState = uiState.copy(
                     unlocked = true,
-                    feedback = "Отлично! Телефон открыт на ${uiState.profile.sessionMinutes} мин."
+                    feedback = "Отлично! Телефон открыт на ${uiState.profile.accessDurationMinutes} мин."
                 )
             } else {
                 repository.onWrongAnswer(task, uiState.hintUsed)

@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ParentAuthEntity::class,
         TaskAttemptEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,10 +36,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE child_profile ADD COLUMN launchIntervalMinutes INTEGER NOT NULL DEFAULT 5")
+                database.execSQL("ALTER TABLE child_profile ADD COLUMN accessDurationMinutes INTEGER NOT NULL DEFAULT 5")
+                database.execSQL("UPDATE child_profile SET launchIntervalMinutes = sessionMinutes, accessDurationMinutes = sessionMinutes")
+            }
+        }
+
         /** Создаёт singleton-подобную БД `learnlock.db` в application context. */
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "learnlock.db")
                 .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .build()
     }
