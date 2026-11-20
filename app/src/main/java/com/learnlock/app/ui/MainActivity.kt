@@ -68,18 +68,55 @@ private fun LearnLockNav(app: LearnLockApp) {
 
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
-            HomeScreen(
-                state = vm.uiState,
-                onOpenOnboarding = { navController.navigate("onboarding") },
-                onOpenSettings = {
-                    if (vm.uiState.hasParentPin) navController.navigate("settings_pin") else navController.navigate("settings")
-                },
-                onOpenStats = { navController.navigate("stats") },
-                onOpenHelp = { navController.navigate("help") },
-                onOpenPermissions = { navController.navigate("permissions") },
-                onToggleLock = { enabled -> vm.setLockEnabled(enabled) },
-                onPreviewLock = { vm.previewLock() }
-            )
+            var pendingLock by remember { mutableStateOf<Boolean?>(null) }
+            var lockPinError by remember { mutableStateOf<String?>(null) }
+            if (pendingLock != null) {
+                ParentPinUnlockScreen(
+                    backgroundColor = vm.uiState.profile.backgroundColor,
+                    error = lockPinError,
+                    onVerify = { pin ->
+                        vm.verifySettingsPin(pin) { result ->
+                            if (result.valid) {
+                                val enabled = pendingLock == true
+                                lockPinError = null
+                                pendingLock = null
+                                vm.setLockEnabled(enabled)
+                            } else {
+                                lockPinError = if (result.lockedUntilMillis > System.currentTimeMillis()) {
+                                    "Слишком много ошибок. Повторите через 30 секунд."
+                                } else {
+                                    "Неверный PIN"
+                                }
+                            }
+                        }
+                    },
+                    onBack = {
+                        pendingLock = null
+                        lockPinError = null
+                    }
+                )
+            } else {
+                HomeScreen(
+                    state = vm.uiState,
+                    onOpenOnboarding = { navController.navigate("onboarding") },
+                    onOpenSettings = {
+                        if (vm.uiState.hasParentPin) navController.navigate("settings_pin") else navController.navigate("settings")
+                    },
+                    onOpenStats = { navController.navigate("stats") },
+                    onOpenHelp = { navController.navigate("help") },
+                    onOpenPermissions = { navController.navigate("permissions") },
+                    onToggleLock = { enabled ->
+                        if (vm.uiState.hasParentPin) {
+                            lockPinError = null
+                            pendingLock = enabled
+                        } else {
+                            vm.setLockEnabled(enabled)
+                        }
+                    },
+                    onPreviewLock = { vm.previewLock() },
+                    lockSwitchEnabled = vm.uiState.profileLoaded
+                )
+            }
         }
         composable("onboarding") {
             OnboardingScreen(
@@ -148,7 +185,6 @@ private fun LearnLockNav(app: LearnLockApp) {
             )
         }
         composable("settings") {
-            LaunchedEffect(Unit) { vm.refreshNextLaunchIfExpired() }
             SettingsScreen(
                 profile = vm.uiState.profile,
                 nextLaunchAtMillis = vm.uiState.session.nextLaunchAtMillis,

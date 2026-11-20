@@ -36,7 +36,7 @@ fun OnboardingScreen(
             Text("Как это работает", style = MaterialTheme.typography.displayMedium, color = LlColors.MintDeep)
             LlPanel {
                 Text("1. После сна появляется задача", style = MaterialTheme.typography.bodyLarge)
-                Text("2. Верный ответ открывает телефон на сессию", style = MaterialTheme.typography.bodyLarge)
+                Text("2. Нужное число верных ответов открывает телефон до следующего запуска", style = MaterialTheme.typography.bodyLarge)
                 Text("3. Родитель всегда может разблокировать PIN", style = MaterialTheme.typography.bodyLarge)
                 Text("4. Нужны права Accessibility и автозапуск", style = MaterialTheme.typography.bodyLarge)
             }

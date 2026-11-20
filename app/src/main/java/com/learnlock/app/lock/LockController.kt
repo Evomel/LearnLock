@@ -23,7 +23,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 object LockController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val lockVisible = AtomicBoolean(false)
+    private val lockInFront = AtomicBoolean(false)
     private val launchNotificationShown = AtomicBoolean(false)
+    private const val LAUNCH_ALARM_REQUEST = 1002
 
     /** Запускает foreground-сервис, слушающий пробуждение экрана. */
     fun startMonitoring(context: Context) {
@@ -47,12 +49,7 @@ object LockController {
             val atMillis = app.container.repository.observeSession().first().nextLaunchAtMillis
             if (atMillis <= System.currentTimeMillis()) return@launch
             val alarmManager = appContext.getSystemService(AlarmManager::class.java)
-            val pendingIntent = PendingIntent.getBroadcast(
-                appContext,
-                1002,
-                Intent(appContext, LaunchAlarmReceiver::class.java),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            val pendingIntent = launchAlarmIntent(appContext)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
                 !alarmManager.canScheduleExactAlarms()
             ) {
@@ -61,6 +58,15 @@ object LockController {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
             }
         }
+    }
+
+    /** Снимает alarm следующего запуска. Тот же request code, что у [scheduleNextLaunch]. */
+    fun cancelScheduledLaunch(context: Context) {
+        val appContext = context.applicationContext
+        val alarmManager = appContext.getSystemService(AlarmManager::class.java)
+        val pendingIntent = launchAlarmIntent(appContext)
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
     }
 
     /**
@@ -85,7 +91,8 @@ object LockController {
      * @param forcePreview true — показать задачу даже при активной сессии (кнопка проверки)
      */
     fun presentLock(context: Context, forcePreview: Boolean = false) {
-        if (!forcePreview && !lockVisible.compareAndSet(false, true)) return
+        if (!forcePreview && lockVisible.get() && lockInFront.get()) return
+        if (!forcePreview) lockVisible.set(true)
         val intent = Intent(context, LockActivity::class.java).apply {
             putExtra(LockActivity.EXTRA_FORCE_PREVIEW, forcePreview)
             addFlags(
@@ -118,15 +125,37 @@ object LockController {
             .setAutoCancel(true)
             .setFullScreenIntent(pendingIntent, true)
             .build()
-        NotificationManagerCompat.from(context).notify(1003, notification)
+        try {
+            NotificationManagerCompat.from(context).notify(1003, notification)
+        } catch (_: SecurityException) {
+            launchNotificationShown.set(false)
+        }
+    }
+
+    fun onLockActivityStarted() {
+        lockVisible.set(true)
+        lockInFront.set(true)
+    }
+
+    fun onLockActivityStopped() {
+        lockInFront.set(false)
     }
 
     fun onLockActivityClosed() {
         lockVisible.set(false)
+        lockInFront.set(false)
         launchNotificationShown.set(false)
     }
 
     /** Есть ли разрешение «поверх других окон» (задел; MVP стартует Activity). */
     fun canDrawOverlays(context: Context): Boolean =
         Settings.canDrawOverlays(context)
+
+    private fun launchAlarmIntent(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            LAUNCH_ALARM_REQUEST,
+            Intent(context, LaunchAlarmReceiver::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 }

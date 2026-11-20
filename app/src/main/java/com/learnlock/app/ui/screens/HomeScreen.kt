@@ -56,7 +56,8 @@ fun HomeScreen(
     onOpenHelp: () -> Unit,
     onOpenPermissions: () -> Unit,
     onToggleLock: (Boolean) -> Unit,
-    onPreviewLock: () -> Unit
+    onPreviewLock: () -> Unit,
+    lockSwitchEnabled: Boolean = true
 ) {
     val firstLaunch = !state.hasParentPin
     val untilText = if (state.session.nextLaunchAtMillis > 0L) {
@@ -130,6 +131,7 @@ fun HomeScreen(
                         Switch(
                             checked = state.profile.lockEnabled,
                             onCheckedChange = onToggleLock,
+                            enabled = lockSwitchEnabled,
                             colors = SwitchDefaults.colors(
                                 checkedTrackColor = LlColors.MintDeep,
                                 checkedThumbColor = LlColors.SurfaceElevated

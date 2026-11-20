@@ -20,6 +20,16 @@ import com.learnlock.app.ui.viewmodel.LockViewModelFactory
  * Кнопка Back блокируется, кроме режима preview с главного экрана.
  */
 class LockActivity : ComponentActivity() {
+    override fun onStart() {
+        super.onStart()
+        LockController.onLockActivityStarted()
+    }
+
+    override fun onStop() {
+        LockController.onLockActivityStopped()
+        super.onStop()
+    }
+
     override fun onDestroy() {
         LockController.onLockActivityClosed()
         super.onDestroy()

@@ -1,14 +1,21 @@
 package com.learnlock.app.ui.screens
 
+import android.Manifest
+import android.app.AlarmManager
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
-import android.app.AlarmManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +56,11 @@ fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit, onContinue: 
     var accessibility by remember { mutableStateOf(isAccessibilityEnabled(context)) }
     var batteryIgnored by remember { mutableStateOf(isIgnoringBattery(context)) }
     var exactAlarms by remember { mutableStateOf(canScheduleExactAlarms(context)) }
+    var notifications by remember { mutableStateOf(notificationsAllowed(context)) }
+    var fullScreenIntent by remember { mutableStateOf(canUseFullScreenIntent(context)) }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> notifications = granted }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -58,6 +70,8 @@ fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit, onContinue: 
                 accessibility = isAccessibilityEnabled(context)
                 batteryIgnored = isIgnoringBattery(context)
                 exactAlarms = canScheduleExactAlarms(context)
+                notifications = notificationsAllowed(context)
+                fullScreenIntent = canUseFullScreenIntent(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -81,7 +95,7 @@ fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit, onContinue: 
             )
 
             LlPanel {
-                if (!overlay || !accessibility || !batteryIgnored || !exactAlarms) {
+                if (!overlay || !accessibility || !batteryIgnored || !exactAlarms || !notifications || !fullScreenIntent) {
                     Text(
                         "Без включённых прав программа не сможет автоматически запускать задания.",
                         color = LlColors.Coral,
@@ -135,6 +149,32 @@ fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit, onContinue: 
                     },
                     enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !exactAlarms
                 )
+
+                Text("Уведомления: ${status(notifications)}", style = MaterialTheme.typography.titleMedium)
+                LlPrimaryButton(
+                    text = "Разрешить уведомления",
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    },
+                    enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notifications
+                )
+
+                Text("Полноэкранный запуск: ${status(fullScreenIntent)}", style = MaterialTheme.typography.titleMedium)
+                LlPrimaryButton(
+                    text = "Разрешить полноэкранный запуск",
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            context.startActivity(
+                                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                            )
+                        }
+                    },
+                    enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !fullScreenIntent
+                )
             }
 
             Text(
@@ -177,4 +217,16 @@ private fun isIgnoringBattery(context: Context): Boolean {
 private fun canScheduleExactAlarms(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
     return context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+}
+
+private fun notificationsAllowed(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+    val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+    return granted && NotificationManagerCompat.from(context).areNotificationsEnabled()
+}
+
+private fun canUseFullScreenIntent(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
+    return context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
 }

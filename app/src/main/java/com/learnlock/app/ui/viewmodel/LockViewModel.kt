@@ -42,9 +42,12 @@ class LockViewModel(
     var uiState by mutableStateOf(LockUiState())
         private set
 
+    private var answerInFlight = false
+
     /**
      * Загружает задачу.
-     * @param forcePreview если true — сбрасывает сессию и всегда показывает задачу
+     * @param forcePreview если true — показывает задачу даже при ещё не наступившем запуске.
+     * endSessionNow при этом только очищает устаревший unlocked_until.
      */
     fun load(forcePreview: Boolean = false) {
         viewModelScope.launch {
@@ -83,41 +86,46 @@ class LockViewModel(
     }
 
     /**
-     * Проверяет ответ. При успехе открывает сессию;
-     * при ошибке — короткий cooldown и новая задача.
+     * Проверяет ответ. Пока первая проверка не записана, повторный вызов игнорируется.
+     * При наборе tasksToUnlock сначала пишет следующий запуск, затем ставит alarm.
      */
     fun submitAnswer(raw: String) {
         val task = uiState.task ?: return
-        if (uiState.cooldownSeconds > 0 || uiState.unlocked) return
+        if (answerInFlight || uiState.cooldownSeconds > 0 || uiState.unlocked) return
+        answerInFlight = true
         viewModelScope.launch {
-            if (task.matches(raw)) {
-                val solved = repository.onCorrectAnswer(task, uiState.hintUsed)
-                val completed = solved >= uiState.tasksRequired
-                if (completed) {
-                    repository.scheduleNextLaunch(uiState.profile)
-                    LockController.scheduleNextLaunch(application)
-                    uiState = uiState.copy(unlocked = true, tasksSolved = solved, feedback = "Все задания решены. Телефон разблокирован.")
+            try {
+                if (task.matches(raw)) {
+                    val solved = repository.onCorrectAnswer(task, uiState.hintUsed)
+                    val completed = solved >= uiState.tasksRequired
+                    if (completed) {
+                        repository.scheduleNextLaunch(uiState.profile, resetProgress = true)
+                        LockController.scheduleNextLaunch(application)
+                        uiState = uiState.copy(unlocked = true, tasksSolved = solved, feedback = "Все задания решены. Телефон разблокирован.")
+                    } else {
+                        uiState = uiState.copy(tasksSolved = solved, task = repository.nextTask(), hintVisible = false, hintUsed = false, feedback = "Верно. Осталось заданий: ${uiState.tasksRequired - solved}")
+                    }
                 } else {
-                    uiState = uiState.copy(tasksSolved = solved, task = repository.nextTask(), hintVisible = false, hintUsed = false, feedback = "Верно. Осталось заданий: ${uiState.tasksRequired - solved}")
+                    repository.onWrongAnswer(task, uiState.hintUsed)
+                    uiState = uiState.copy(feedback = "Неверно. Попробуй ещё раз.")
+                    for (sec in 2 downTo 1) {
+                        uiState = uiState.copy(cooldownSeconds = sec)
+                        delay(1000)
+                    }
+                    val refreshed = repository.nextTask()
+                    uiState = uiState.copy(
+                        task = refreshed,
+                        hintVisible = false,
+                        cooldownSeconds = 0
+                    )
                 }
-            } else {
-                repository.onWrongAnswer(task, uiState.hintUsed)
-                uiState = uiState.copy(feedback = "Неверно. Попробуй ещё раз.")
-                for (sec in 2 downTo 1) {
-                    uiState = uiState.copy(cooldownSeconds = sec)
-                    delay(1000)
-                }
-                val refreshed = repository.nextTask()
-                uiState = uiState.copy(
-                    task = refreshed,
-                    hintVisible = false,
-                    cooldownSeconds = 0
-                )
+            } finally {
+                answerInFlight = false
             }
         }
     }
 
-    /** Emergency unlock родительским PIN. */
+    /** Emergency unlock родительским PIN. Срок уже записан в [LearnLockRepository.unlockWithParentPin]. */
     fun parentUnlock(pin: String) {
         viewModelScope.launch {
             val ok = repository.unlockWithParentPin(pin)

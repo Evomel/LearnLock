@@ -42,7 +42,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.learnlock.app.data.ChildProfileEntity
-import com.learnlock.app.data.OutsideWindowMode
 import com.learnlock.app.ui.components.LlBackground
 import com.learnlock.app.ui.components.LlGhostButton
 import com.learnlock.app.ui.components.LlPanel
@@ -51,8 +50,8 @@ import com.learnlock.app.ui.theme.LlColors
 import kotlin.math.roundToInt
 
 /**
- * Редактирование профиля ребёнка: возраст, сложность, длительность сессии,
- * окно часов, категории и подсказки.
+ * Редактирование профиля ребёнка: возраст, сложность, интервал запуска,
+ * число заданий, категории и подсказки.
  * Чипы на узком экране переносятся через [FlowRow].
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -72,11 +71,6 @@ fun SettingsScreen(
     var nameFocused by remember { mutableStateOf(false) }
     var nameErrorShown by remember { mutableStateOf(false) }
     var resetDialogVisible by remember { mutableStateOf(false) }
-    val chipColors = FilterChipDefaults.filterChipColors(
-        selectedContainerColor = LlColors.MintDeep,
-        selectedLabelColor = LlColors.TextOnAccent,
-        labelColor = Color.Black
-    )
     val backgroundChipColors = FilterChipDefaults.filterChipColors(
         selectedContainerColor = LlColors.MintDeep,
         selectedLabelColor = LlColors.TextOnAccent,
@@ -219,70 +213,14 @@ fun SettingsScreen(
                     )
                 }
 
-                Text("Окно: ${draft.activeWindowStartHour}:00–${draft.activeWindowEndHour}:00")
-                Slider(
-                    value = draft.activeWindowStartHour.toFloat(),
-                    onValueChange = {
-                        draft = draft.copy(activeWindowStartHour = it.roundToInt().coerceIn(0, 23))
-                    },
-                    valueRange = 0f..23f,
-                    steps = 22,
-                    colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
-                )
-                Slider(
-                    value = draft.activeWindowEndHour.toFloat(),
-                    onValueChange = {
-                        draft = draft.copy(activeWindowEndHour = it.roundToInt().coerceIn(0, 23))
-                    },
-                    valueRange = 0f..23f,
-                    steps = 22,
-                    colors = SliderDefaults.colors(thumbColor = LlColors.MintDeep, activeTrackColor = LlColors.Mint)
-                )
-
-                Text("Вне окна")
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = draft.outsideWindowMode == OutsideWindowMode.NO_TASKS.name,
-                        onClick = {
-                            draft = draft.copy(outsideWindowMode = OutsideWindowMode.NO_TASKS.name)
-                        },
-                        label = {
-                            Text(
-                                "Без задач",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        colors = chipColors
-                    )
-                    FilterChip(
-                        selected = draft.outsideWindowMode == OutsideWindowMode.HARD_BLOCK.name,
-                        onClick = {
-                            draft = draft.copy(outsideWindowMode = OutsideWindowMode.HARD_BLOCK.name)
-                        },
-                        label = {
-                            Text(
-                                "Полный запрет",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        colors = chipColors
-                    )
+                CategoryToggle("Математика", draft.mathEnabled) { enabled ->
+                    draft = draft.copy(mathEnabled = keepCategory(enabled, draft.readingEnabled, draft.logicEnabled))
                 }
-
-                CategoryToggle("Математика", draft.mathEnabled) {
-                    draft = draft.copy(mathEnabled = it)
+                CategoryToggle("Чтение", draft.readingEnabled) { enabled ->
+                    draft = draft.copy(readingEnabled = keepCategory(enabled, draft.mathEnabled, draft.logicEnabled))
                 }
-                CategoryToggle("Чтение", draft.readingEnabled) {
-                    draft = draft.copy(readingEnabled = it)
-                }
-                CategoryToggle("Логика", draft.logicEnabled) {
-                    draft = draft.copy(logicEnabled = it)
+                CategoryToggle("Логика", draft.logicEnabled) { enabled ->
+                    draft = draft.copy(logicEnabled = keepCategory(enabled, draft.mathEnabled, draft.readingEnabled))
                 }
                 CategoryToggle("Подсказки", draft.hintsEnabled) {
                     draft = draft.copy(hintsEnabled = it)
@@ -320,6 +258,11 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+private fun keepCategory(enabled: Boolean, otherA: Boolean, otherB: Boolean): Boolean {
+    if (!enabled && !otherA && !otherB) return true
+    return enabled
 }
 
 /** Строка «лейбл + Switch» для включения категории задач / подсказок. */

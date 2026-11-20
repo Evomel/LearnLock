@@ -11,7 +11,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * Локальная Room-БД LearnLock.
  * Хранит профиль ребёнка, родительский PIN и историю попыток.
  *
- * При смене схемы используется destructive migration (MVP).
+ * Смена схемы идёт только по миграциям 2→3→4→5→6.
+ * Неизвестная версия не пересоздаёт базу: профиль и PIN при этом сохраняются на диске,
+ * а открытие завершается ошибкой Room.
  */
 @Database(
     entities = [
@@ -64,7 +66,6 @@ abstract class AppDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_3_4)
                 .addMigrations(MIGRATION_4_5)
                 .addMigrations(MIGRATION_5_6)
-                .fallbackToDestructiveMigration()
                 .build()
     }
 }

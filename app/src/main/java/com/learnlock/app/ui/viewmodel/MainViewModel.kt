@@ -23,7 +23,9 @@ data class MainUiState(
     val session: SessionState = SessionState(),
     val hasParentPin: Boolean = false,
     val attempts: List<TaskAttemptEntity> = emptyList(),
-    val bootstrapped: Boolean = false
+    val bootstrapped: Boolean = false,
+    /** true после чтения строки профиля из Room, до этого сохранять профиль нельзя. */
+    val profileLoaded: Boolean = false
 )
 
 /**
@@ -41,12 +43,17 @@ class MainViewModel(
     fun bootstrap() {
         viewModelScope.launch {
             repository.ensureDefaults()
-            repository.refreshNextLaunchIfExpired()
+            val profile = repository.getProfileOrDefault()
+            uiState = uiState.copy(
+                profile = profile,
+                profileLoaded = true,
+                hasParentPin = repository.hasParentPin(),
+                bootstrapped = true
+            )
             LockController.scheduleNextLaunch(getApplication())
-            uiState = uiState.copy(hasParentPin = repository.hasParentPin(), bootstrapped = true)
             launch {
-                repository.observeProfile().collectLatest { profile ->
-                    if (profile != null) uiState = uiState.copy(profile = profile)
+                repository.observeProfile().collectLatest { loaded ->
+                    if (loaded != null) uiState = uiState.copy(profile = loaded, profileLoaded = true)
                 }
             }
             launch {
@@ -65,7 +72,6 @@ class MainViewModel(
     fun setPin(pin: String) {
         viewModelScope.launch {
             repository.setParentPin(pin)
-            planNextLaunch()
             uiState = uiState.copy(hasParentPin = true)
         }
     }
@@ -84,24 +90,29 @@ class MainViewModel(
         }
     }
 
-    fun refreshNextLaunchIfExpired() {
-        viewModelScope.launch { repository.refreshNextLaunchIfExpired() }
-    }
-
-    /** Сохраняет профиль и синхронизирует foreground-мониторинг с [ChildProfileEntity.lockEnabled]. */
+    /**
+     * Сохраняет профиль и синхронизирует мониторинг с [ChildProfileEntity.lockEnabled].
+     * Срок переписывается только если он ещё не задан или изменился интервал.
+     * Выключение блокировки alarm снимает и новый срок не ставит.
+     */
     fun saveProfile(profile: ChildProfileEntity) {
+        if (!uiState.profileLoaded) return
+        val before = uiState.profile
         viewModelScope.launch {
-            repository.saveProfile(profile)
-            planNextLaunch(profile)
-            if (profile.lockEnabled) {
-                LockController.startMonitoring(getApplication())
-            } else {
+            val stored = repository.saveProfile(profile)
+            if (!stored.lockEnabled) {
+                LockController.cancelScheduledLaunch(getApplication())
                 LockController.stopMonitoring(getApplication())
+                return@launch
             }
+            repository.scheduleNextLaunchAfterProfileEdit(before, stored)
+            LockController.startMonitoring(getApplication())
+            LockController.scheduleNextLaunch(getApplication())
         }
     }
 
     fun setLockEnabled(enabled: Boolean) {
+        if (!uiState.profileLoaded) return
         saveProfile(uiState.profile.copy(lockEnabled = enabled))
     }
 
@@ -112,11 +123,6 @@ class MainViewModel(
 
     fun endSession() {
         viewModelScope.launch { repository.endSessionNow() }
-    }
-
-    private suspend fun planNextLaunch(profile: ChildProfileEntity? = null) {
-        repository.scheduleNextLaunch(profile)
-        LockController.scheduleNextLaunch(getApplication())
     }
 }
 
