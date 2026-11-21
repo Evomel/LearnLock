@@ -30,6 +30,7 @@ import java.util.Locale
 @Composable
 fun StatsScreen(
     attempts: List<TaskAttemptEntity>,
+    backgroundColor: Int = 0,
     onBack: () -> Unit
 ) {
     val learning = attempts.filter { !it.usedParentUnlock }
@@ -43,7 +44,7 @@ fun StatsScreen(
     val weakTopics = weakTopicsFromAttempts(learning).take(3)
     val formatter = SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())
 
-    LlBackground {
+    LlBackground(backgroundColor = backgroundColor) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

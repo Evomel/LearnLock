@@ -1,13 +1,21 @@
 package com.learnlock.app.ui.screens
 
+import android.Manifest
+import android.app.AlarmManager
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,11 +50,17 @@ import com.learnlock.app.ui.theme.LlColors
  * Статусы обновляются при возврате на экран (Lifecycle.ON_RESUME).
  */
 @Composable
-fun PermissionsScreen(onBack: () -> Unit) {
+fun PermissionsScreen(backgroundColor: Int = 0, onBack: () -> Unit, onContinue: (() -> Unit)? = null) {
     val context = LocalContext.current
     var overlay by remember { mutableStateOf(LockController.canDrawOverlays(context)) }
     var accessibility by remember { mutableStateOf(isAccessibilityEnabled(context)) }
     var batteryIgnored by remember { mutableStateOf(isIgnoringBattery(context)) }
+    var exactAlarms by remember { mutableStateOf(canScheduleExactAlarms(context)) }
+    var notifications by remember { mutableStateOf(notificationsAllowed(context)) }
+    var fullScreenIntent by remember { mutableStateOf(canUseFullScreenIntent(context)) }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> notifications = granted }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -55,13 +69,16 @@ fun PermissionsScreen(onBack: () -> Unit) {
                 overlay = LockController.canDrawOverlays(context)
                 accessibility = isAccessibilityEnabled(context)
                 batteryIgnored = isIgnoringBattery(context)
+                exactAlarms = canScheduleExactAlarms(context)
+                notifications = notificationsAllowed(context)
+                fullScreenIntent = canUseFullScreenIntent(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LlBackground {
+    LlBackground(backgroundColor = backgroundColor) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -78,6 +95,13 @@ fun PermissionsScreen(onBack: () -> Unit) {
             )
 
             LlPanel {
+                if (!overlay || !accessibility || !batteryIgnored || !exactAlarms || !notifications || !fullScreenIntent) {
+                    Text(
+                        "Без включённых прав программа не сможет автоматически запускать задания.",
+                        color = LlColors.Coral,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
                 Text("Поверх окон: ${status(overlay)}", style = MaterialTheme.typography.titleMedium)
                 LlPrimaryButton(
                     text = "Открыть overlay",
@@ -112,6 +136,45 @@ fun PermissionsScreen(onBack: () -> Unit) {
                         }
                     }
                 )
+
+                Text("Точные запуски по времени: ${status(exactAlarms)}", style = MaterialTheme.typography.titleMedium)
+                LlPrimaryButton(
+                    text = "Разрешить точные запуски",
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            })
+                        }
+                    },
+                    enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !exactAlarms
+                )
+
+                Text("Уведомления: ${status(notifications)}", style = MaterialTheme.typography.titleMedium)
+                LlPrimaryButton(
+                    text = "Разрешить уведомления",
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    },
+                    enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notifications
+                )
+
+                Text("Полноэкранный запуск: ${status(fullScreenIntent)}", style = MaterialTheme.typography.titleMedium)
+                LlPrimaryButton(
+                    text = "Разрешить полноэкранный запуск",
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            context.startActivity(
+                                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                            )
+                        }
+                    },
+                    enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !fullScreenIntent
+                )
             }
 
             Text(
@@ -119,6 +182,14 @@ fun PermissionsScreen(onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = LlColors.TextSecondary
             )
+            Text(
+                "Если Samsung сообщает, что Accessibility заблокирована, откройте Настройки → Приложения → LearnLock → меню ⋮ → Разрешить ограниченные настройки, затем снова включите Accessibility.",
+                style = MaterialTheme.typography.bodySmall,
+                color = LlColors.TextSecondary
+            )
+            onContinue?.let { continueAction ->
+                LlPrimaryButton("Продолжить", onClick = continueAction)
+            }
             LlGhostButton("Назад", onClick = onBack)
         }
     }
@@ -141,4 +212,21 @@ private fun isIgnoringBattery(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun canScheduleExactAlarms(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+    return context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+}
+
+private fun notificationsAllowed(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+    val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+    return granted && NotificationManagerCompat.from(context).areNotificationsEnabled()
+}
+
+private fun canUseFullScreenIntent(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
+    return context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
 }

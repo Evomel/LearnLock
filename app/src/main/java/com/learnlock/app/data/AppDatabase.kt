@@ -4,12 +4,16 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * Локальная Room-БД LearnLock.
  * Хранит профиль ребёнка, родительский PIN и историю попыток.
  *
- * При смене схемы используется destructive migration (MVP).
+ * Смена схемы идёт только по миграциям 2→3→4→5→6.
+ * Неизвестная версия не пересоздаёт базу: профиль и PIN при этом сохраняются на диске,
+ * а открытие завершается ошибкой Room.
  */
 @Database(
     entities = [
@@ -17,7 +21,7 @@ import androidx.room.RoomDatabase
         ParentAuthEntity::class,
         TaskAttemptEntity::class
     ],
-    version = 2,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,10 +30,42 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun statsDao(): StatsDao
 
     companion object {
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE child_profile ADD COLUMN backgroundColor INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE child_profile ADD COLUMN launchIntervalMinutes INTEGER NOT NULL DEFAULT 5")
+                database.execSQL("ALTER TABLE child_profile ADD COLUMN accessDurationMinutes INTEGER NOT NULL DEFAULT 5")
+                database.execSQL("UPDATE child_profile SET launchIntervalMinutes = sessionMinutes, accessDurationMinutes = sessionMinutes")
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE parent_auth ADD COLUMN failedAttempts INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE parent_auth ADD COLUMN lockedUntilMillis INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE child_profile ADD COLUMN tasksToUnlock INTEGER NOT NULL DEFAULT 10")
+            }
+        }
+
         /** Создаёт singleton-подобную БД `learnlock.db` в application context. */
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "learnlock.db")
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_3_4)
+                .addMigrations(MIGRATION_4_5)
+                .addMigrations(MIGRATION_5_6)
                 .build()
     }
 }

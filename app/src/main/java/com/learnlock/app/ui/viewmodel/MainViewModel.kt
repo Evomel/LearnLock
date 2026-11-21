@@ -12,6 +12,7 @@ import com.learnlock.app.data.ChildProfileEntity
 import com.learnlock.app.data.LearnLockRepository
 import com.learnlock.app.data.SessionState
 import com.learnlock.app.data.TaskAttemptEntity
+import com.learnlock.app.data.ParentPinVerification
 import com.learnlock.app.lock.LockController
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -22,7 +23,9 @@ data class MainUiState(
     val session: SessionState = SessionState(),
     val hasParentPin: Boolean = false,
     val attempts: List<TaskAttemptEntity> = emptyList(),
-    val bootstrapped: Boolean = false
+    val bootstrapped: Boolean = false,
+    /** true после чтения строки профиля из Room, до этого сохранять профиль нельзя. */
+    val profileLoaded: Boolean = false
 )
 
 /**
@@ -40,10 +43,17 @@ class MainViewModel(
     fun bootstrap() {
         viewModelScope.launch {
             repository.ensureDefaults()
-            uiState = uiState.copy(hasParentPin = repository.hasParentPin(), bootstrapped = true)
+            val profile = repository.getProfileOrDefault()
+            uiState = uiState.copy(
+                profile = profile,
+                profileLoaded = true,
+                hasParentPin = repository.hasParentPin(),
+                bootstrapped = true
+            )
+            LockController.scheduleNextLaunch(getApplication())
             launch {
-                repository.observeProfile().collectLatest { profile ->
-                    if (profile != null) uiState = uiState.copy(profile = profile)
+                repository.observeProfile().collectLatest { loaded ->
+                    if (loaded != null) uiState = uiState.copy(profile = loaded, profileLoaded = true)
                 }
             }
             launch {
@@ -66,19 +76,43 @@ class MainViewModel(
         }
     }
 
-    /** Сохраняет профиль и синхронизирует foreground-мониторинг с [ChildProfileEntity.lockEnabled]. */
-    fun saveProfile(profile: ChildProfileEntity) {
+
+    fun verifySettingsPin(pin: String, onResult: (ParentPinVerification) -> Unit) {
         viewModelScope.launch {
-            repository.saveProfile(profile)
-            if (profile.lockEnabled) {
-                LockController.startMonitoring(getApplication())
-            } else {
+            onResult(repository.verifyParentPin(pin))
+        }
+    }
+
+    fun clearParentPin() {
+        viewModelScope.launch {
+            repository.clearParentPin()
+            uiState = uiState.copy(hasParentPin = false)
+        }
+    }
+
+    /**
+     * Сохраняет профиль и синхронизирует мониторинг с [ChildProfileEntity.lockEnabled].
+     * Срок переписывается только если он ещё не задан или изменился интервал.
+     * Выключение блокировки alarm снимает и новый срок не ставит.
+     */
+    fun saveProfile(profile: ChildProfileEntity) {
+        if (!uiState.profileLoaded) return
+        val before = uiState.profile
+        viewModelScope.launch {
+            val stored = repository.saveProfile(profile)
+            if (!stored.lockEnabled) {
+                LockController.cancelScheduledLaunch(getApplication())
                 LockController.stopMonitoring(getApplication())
+                return@launch
             }
+            repository.scheduleNextLaunchAfterProfileEdit(before, stored)
+            LockController.startMonitoring(getApplication())
+            LockController.scheduleNextLaunch(getApplication())
         }
     }
 
     fun setLockEnabled(enabled: Boolean) {
+        if (!uiState.profileLoaded) return
         saveProfile(uiState.profile.copy(lockEnabled = enabled))
     }
 

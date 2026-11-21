@@ -9,7 +9,6 @@ import com.learnlock.taskengine.TaskEngine
 import com.learnlock.taskengine.TaskRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 /**
@@ -20,7 +19,7 @@ class LearnLockRepository(
     private val profileDao: ProfileDao,
     private val parentAuthDao: ParentAuthDao,
     private val statsDao: StatsDao,
-    private val sessionStore: SessionStore,
+    private val sessionStore: LearnLockSession,
     private val taskEngine: TaskEngine
 ) {
     fun observeProfile(): Flow<ChildProfileEntity?> = profileDao.observeProfile()
@@ -54,43 +53,94 @@ class LearnLockRepository(
     }
 
     /** Проверяет введённый PIN родителя. */
-    suspend fun verifyParentPin(pin: String): Boolean {
-        val entity = parentAuthDao.get() ?: return false
-        return PinHasher.matches(pin, entity)
+    suspend fun verifyParentPin(pin: String): ParentPinVerification {
+        val entity = parentAuthDao.get() ?: return ParentPinVerification(valid = false)
+        val now = System.currentTimeMillis()
+        if (entity.lockedUntilMillis > now) {
+            return ParentPinVerification(valid = false, lockedUntilMillis = entity.lockedUntilMillis)
+        }
+        if (PinHasher.matches(pin, entity)) {
+            parentAuthDao.upsert(entity.copy(failedAttempts = 0, lockedUntilMillis = 0L))
+            return ParentPinVerification(valid = true)
+        }
+        val attempts = entity.failedAttempts + 1
+        val lockedUntil = if (attempts >= 3) now + TimeUnit.SECONDS.toMillis(30) else 0L
+        parentAuthDao.upsert(
+            entity.copy(
+                failedAttempts = if (lockedUntil > 0L) 0 else attempts,
+                lockedUntilMillis = lockedUntil
+            )
+        )
+        return ParentPinVerification(valid = false, lockedUntilMillis = lockedUntil)
     }
 
-    suspend fun saveProfile(profile: ChildProfileEntity) {
-        profileDao.upsert(profile)
+    suspend fun clearParentPin() = parentAuthDao.delete()
+
+    /** Сохраняет профиль. Пустой набор категорий чинится включением математики. */
+    suspend fun saveProfile(profile: ChildProfileEntity): ChildProfileEntity {
+        val stored = profile.withAtLeastOneCategory()
+        profileDao.upsert(stored)
+        return stored
+    }
+
+    /**
+     * Пишет следующий запуск: сейчас + [ChildProfileEntity.launchIntervalMinutes], не меньше 5 минут.
+     * [resetProgress] обнуляет [SessionState.tasksSolved] только когда серия закрыта
+     * верными ответами или родительским PIN.
+     */
+    suspend fun scheduleNextLaunch(profile: ChildProfileEntity? = null, resetProgress: Boolean = true) {
+        val currentProfile = profile ?: getProfileOrDefault()
+        val intervalMinutes = currentProfile.launchIntervalMinutes.coerceAtLeast(5)
+        val nextLaunchAt = System.currentTimeMillis() +
+            TimeUnit.MINUTES.toMillis(intervalMinutes.toLong())
+        sessionStore.setNextLaunchAt(nextLaunchAt)
+        if (resetProgress) {
+            sessionStore.setTasksSolved(0)
+            sessionStore.setConsecutiveWrong(0)
+        }
+    }
+
+    /**
+     * После правки профиля двигает срок только если он ещё не задан
+     * или родитель изменил интервал. Уже идущую серию не обнуляет.
+     */
+    suspend fun scheduleNextLaunchAfterProfileEdit(before: ChildProfileEntity, after: ChildProfileEntity) {
+        val session = sessionStore.state.first()
+        val intervalChanged = before.launchIntervalMinutes != after.launchIntervalMinutes
+        if (session.nextLaunchAtMillis != 0L && !intervalChanged) return
+        scheduleNextLaunch(after, resetProgress = false)
     }
 
     suspend fun getProfileOrDefault(): ChildProfileEntity =
         profileDao.getProfile() ?: ChildProfileEntity().also { profileDao.upsert(it) }
 
-    /** true, если сейчас действует свободный доступ после решения задачи. */
+    /** true, пока записанный следующий запуск ещё не наступил. */
     suspend fun isSessionActive(): Boolean {
         val state = sessionStore.state.first()
-        return state.unlockedUntilMillis > System.currentTimeMillis()
+        return state.nextLaunchAtMillis > System.currentTimeMillis()
     }
 
     /**
      * Нужно ли показать экран задачи после пробуждения / смены приложения.
      *
-     * Условия отказа: блокировка выключена, сессия ещё активна,
-     * либо сейчас вне окна и режим [OutsideWindowMode.NO_TASKS].
+     * Экран не показывается, если блокировка выключена или [SessionState.nextLaunchAtMillis]
+     * ещё в будущем. Часы окна профиля на это решение не влияют.
      */
     suspend fun shouldPresentLock(): Boolean {
         val profile = getProfileOrDefault()
         if (!profile.lockEnabled) return false
-        if (isSessionActive()) return false
-        return when (outsideWindowDecision(profile)) {
-            OutsideDecision.ALLOW_FREE -> false
-            OutsideDecision.SHOW_TASK, OutsideDecision.HARD_BLOCK -> true
-        }
+        val session = sessionStore.state.first()
+        return session.nextLaunchAtMillis == 0L || session.nextLaunchAtMillis <= System.currentTimeMillis()
     }
 
     /** Генерирует следующую задачу с учётом возраста, точности и слабых навыков. */
     suspend fun nextTask(): Task {
-        val profile = getProfileOrDefault()
+        val stored = getProfileOrDefault()
+        val profile = if (stored.enabledCategories().isEmpty()) {
+            saveProfile(stored.copy(mathEnabled = true))
+        } else {
+            stored
+        }
         val session = sessionStore.state.first()
         val weekAgo = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)
         val accuracy = statsDao.accuracySince(weekAgo) ?: session.lastAccuracyWindow
@@ -100,9 +150,7 @@ class LearnLockRepository(
             TaskRequest(
                 ageYears = profile.ageYears,
                 difficultyOffset = profile.difficultyOffset,
-                enabledCategories = profile.enabledCategories().ifEmpty {
-                    setOf(TaskCategory.MATH)
-                },
+                enabledCategories = profile.enabledCategories(),
                 categoryWeights = profile.categoryWeights(),
                 recentAccuracy = accuracy,
                 forceEasier = forceEasier,
@@ -132,15 +180,17 @@ class LearnLockRepository(
         return LearnerStats.fromAttempts(records)
     }
 
-    /** Верный ответ: открывает сессию на [ChildProfileEntity.sessionMinutes] минут. */
-    suspend fun onCorrectAnswer(task: Task, usedHint: Boolean) {
-        val profile = getProfileOrDefault()
-        val until = System.currentTimeMillis() +
-            TimeUnit.MINUTES.toMillis(profile.sessionMinutes.toLong())
-        sessionStore.setUnlockedUntil(until)
+    /**
+     * Верный ответ увеличивает [SessionState.tasksSolved] на 1.
+     * Следующий запуск пишет вызывающий код, когда счётчик достигает tasksToUnlock.
+     */
+    suspend fun onCorrectAnswer(task: Task, usedHint: Boolean): Int {
+        val solved = sessionStore.state.first().tasksSolved + 1
+        sessionStore.setTasksSolved(solved)
         sessionStore.setConsecutiveWrong(0)
         insertAttempt(task, correct = true, usedHint = usedHint, usedParentUnlock = false)
         refreshAccuracy()
+        return solved
     }
 
     /** Неверный ответ: увеличивает счётчик ошибок, сессию не открывает. */
@@ -153,15 +203,12 @@ class LearnLockRepository(
 
     /**
      * Emergency-разблокировка родителем.
-     * @return true, если PIN верен и сессия открыта
+     * При верном PIN до возврата записывает следующий запуск и обнуляет серию.
+     * @return true, если PIN верен и срок следующего запуска записан
      */
     suspend fun unlockWithParentPin(pin: String): Boolean {
-        if (!verifyParentPin(pin)) return false
+        if (!verifyParentPin(pin).valid) return false
         val profile = getProfileOrDefault()
-        val until = System.currentTimeMillis() +
-            TimeUnit.MINUTES.toMillis(profile.sessionMinutes.toLong())
-        sessionStore.setUnlockedUntil(until)
-        sessionStore.setConsecutiveWrong(0)
         statsDao.insert(
             TaskAttemptEntity(
                 timestampMillis = System.currentTimeMillis(),
@@ -173,10 +220,11 @@ class LearnLockRepository(
                 skillTag = ""
             )
         )
+        scheduleNextLaunch(profile, resetProgress = true)
         return true
     }
 
-    /** Принудительно сбрасывает свободную сессию. */
+    /** Обнуляет устаревший ключ `unlocked_until`. Срок запуска и tasksSolved не меняет. */
     suspend fun endSessionNow() {
         sessionStore.clearUnlock()
     }
@@ -206,29 +254,4 @@ class LearnLockRepository(
         sessionStore.setAccuracy(accuracy)
     }
 
-    /**
-     * Решение по текущему часу суток относительно окна профиля.
-     * Поддерживает окно через полночь (start > end).
-     */
-    private fun outsideWindowDecision(profile: ChildProfileEntity): OutsideDecision {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val start = profile.activeWindowStartHour
-        val end = profile.activeWindowEndHour
-        val inWindow = if (start <= end) {
-            hour in start until end
-        } else {
-            hour >= start || hour < end
-        }
-        if (inWindow) return OutsideDecision.SHOW_TASK
-        return when (OutsideWindowMode.valueOf(profile.outsideWindowMode)) {
-            OutsideWindowMode.NO_TASKS -> OutsideDecision.ALLOW_FREE
-            OutsideWindowMode.HARD_BLOCK -> OutsideDecision.HARD_BLOCK
-        }
-    }
-
-    private enum class OutsideDecision {
-        SHOW_TASK,
-        ALLOW_FREE,
-        HARD_BLOCK
-    }
 }

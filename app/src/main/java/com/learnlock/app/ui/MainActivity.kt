@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -16,8 +20,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.learnlock.app.LearnLockApp
 import com.learnlock.app.ui.screens.HomeScreen
+import com.learnlock.app.ui.screens.HelpScreen
 import com.learnlock.app.ui.screens.OnboardingScreen
 import com.learnlock.app.ui.screens.ParentPinSetupScreen
+import com.learnlock.app.ui.screens.ParentPinUnlockScreen
 import com.learnlock.app.ui.screens.PermissionsScreen
 import com.learnlock.app.ui.screens.SettingsScreen
 import com.learnlock.app.ui.screens.StatsScreen
@@ -62,20 +68,60 @@ private fun LearnLockNav(app: LearnLockApp) {
 
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
-            HomeScreen(
-                state = vm.uiState,
-                onOpenOnboarding = { navController.navigate("onboarding") },
-                onOpenSettings = { navController.navigate("settings") },
-                onOpenStats = { navController.navigate("stats") },
-                onOpenPermissions = { navController.navigate("permissions") },
-                onToggleLock = { enabled -> vm.setLockEnabled(enabled) },
-                onPreviewLock = { vm.previewLock() },
-                onEndSession = { vm.endSession() }
-            )
+            var pendingLock by remember { mutableStateOf<Boolean?>(null) }
+            var lockPinError by remember { mutableStateOf<String?>(null) }
+            if (pendingLock != null) {
+                ParentPinUnlockScreen(
+                    backgroundColor = vm.uiState.profile.backgroundColor,
+                    error = lockPinError,
+                    onVerify = { pin ->
+                        vm.verifySettingsPin(pin) { result ->
+                            if (result.valid) {
+                                val enabled = pendingLock == true
+                                lockPinError = null
+                                pendingLock = null
+                                vm.setLockEnabled(enabled)
+                            } else {
+                                lockPinError = if (result.lockedUntilMillis > System.currentTimeMillis()) {
+                                    "Слишком много ошибок. Повторите через 30 секунд."
+                                } else {
+                                    "Неверный PIN"
+                                }
+                            }
+                        }
+                    },
+                    onBack = {
+                        pendingLock = null
+                        lockPinError = null
+                    }
+                )
+            } else {
+                HomeScreen(
+                    state = vm.uiState,
+                    onOpenOnboarding = { navController.navigate("onboarding") },
+                    onOpenSettings = {
+                        if (vm.uiState.hasParentPin) navController.navigate("settings_pin") else navController.navigate("settings")
+                    },
+                    onOpenStats = { navController.navigate("stats") },
+                    onOpenHelp = { navController.navigate("help") },
+                    onOpenPermissions = { navController.navigate("permissions") },
+                    onToggleLock = { enabled ->
+                        if (vm.uiState.hasParentPin) {
+                            lockPinError = null
+                            pendingLock = enabled
+                        } else {
+                            vm.setLockEnabled(enabled)
+                        }
+                    },
+                    onPreviewLock = { vm.previewLock() },
+                    lockSwitchEnabled = vm.uiState.profileLoaded
+                )
+            }
         }
         composable("onboarding") {
             OnboardingScreen(
                 hasPin = vm.uiState.hasParentPin,
+                backgroundColor = vm.uiState.profile.backgroundColor,
                 onContinueToPin = { navController.navigate("pin_setup") },
                 onContinueToPermissions = { navController.navigate("permissions") },
                 onDone = { navController.popBackStack() }
@@ -83,21 +129,70 @@ private fun LearnLockNav(app: LearnLockApp) {
         }
         composable("pin_setup") {
             ParentPinSetupScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
                 onSave = { pin ->
                     vm.setPin(pin)
-                    navController.navigate("permissions") {
+                    navController.navigate("permissions_first") {
                         popUpTo("onboarding")
                     }
                 },
                 onBack = { navController.popBackStack() }
             )
         }
+        composable("change_pin") {
+            ParentPinSetupScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                onSave = { pin ->
+                    vm.setPin(pin)
+                    navController.navigate("settings") {
+                        popUpTo("change_pin") { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
         composable("permissions") {
-            PermissionsScreen(onBack = { navController.popBackStack() })
+            PermissionsScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("permissions_first") {
+            PermissionsScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                onBack = { navController.popBackStack() },
+                onContinue = { navController.navigate("settings") { popUpTo("permissions_first") { inclusive = true } } }
+            )
+        }
+        composable("settings_pin") {
+            var error by remember { mutableStateOf<String?>(null) }
+            ParentPinUnlockScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                error = error,
+                onVerify = { pin ->
+                    vm.verifySettingsPin(pin) { valid ->
+                if (valid.valid) {
+                            error = null
+                            navController.navigate("settings") { popUpTo("settings_pin") { inclusive = true } }
+                        } else {
+                    error = if (valid.lockedUntilMillis > System.currentTimeMillis()) {
+                        "Слишком много ошибок. Повторите через 30 секунд."
+                    } else "Неверный PIN"
+                        }
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
         }
         composable("settings") {
             SettingsScreen(
                 profile = vm.uiState.profile,
+                nextLaunchAtMillis = vm.uiState.session.nextLaunchAtMillis,
+                onChangePin = { navController.navigate("change_pin") },
+                onResetPin = {
+                    vm.clearParentPin()
+                    navController.navigate("onboarding") { popUpTo("settings") { inclusive = true } }
+                },
                 onSave = { profile ->
                     vm.saveProfile(profile)
                     navController.popBackStack()
@@ -108,6 +203,13 @@ private fun LearnLockNav(app: LearnLockApp) {
         composable("stats") {
             StatsScreen(
                 attempts = vm.uiState.attempts,
+                backgroundColor = vm.uiState.profile.backgroundColor,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("help") {
+            HelpScreen(
+                backgroundColor = vm.uiState.profile.backgroundColor,
                 onBack = { navController.popBackStack() }
             )
         }

@@ -23,8 +23,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
@@ -51,6 +53,7 @@ private val ButtonShape = RoundedCornerShape(18.dp)
 fun LlBackground(
     modifier: Modifier = Modifier,
     energetic: Boolean = false,
+    backgroundColor: Int = 0,
     content: @Composable () -> Unit
 ) {
     val transition = rememberInfiniteTransition(label = "bg")
@@ -63,6 +66,14 @@ fun LlBackground(
         ),
         label = "shift"
     )
+    val lightBackgrounds = listOf(
+        listOf(LlColors.Mist, Color(0xFFDFF3F1), LlColors.MistDeep),
+        listOf(Color(0xFFFFF3E8), Color(0xFFFFE4D1), Color(0xFFFFC9A8)),
+        listOf(Color(0xFFEAF2FF), Color(0xFFDCEBFF), Color(0xFFBCD7FF)),
+        listOf(Color(0xFFF7EEFF), Color(0xFFEBD8FF), Color(0xFFD8B9F7)),
+        listOf(Color(0xFFEAFBF2), Color(0xFFD4F2DF), Color(0xFFB7E5C7))
+    )
+    val selectedBackground = lightBackgrounds.getOrElse(backgroundColor.coerceIn(0, lightBackgrounds.lastIndex)) { lightBackgrounds.first() }
     val brush = if (energetic) {
         Brush.verticalGradient(
             colors = listOf(
@@ -74,11 +85,9 @@ fun LlBackground(
         )
     } else {
         Brush.verticalGradient(
-            colors = listOf(
-                LlColors.Mist,
-                Color(0xFFDFF3F1).copy(alpha = 0.9f + 0.05f * shift),
-                LlColors.MistDeep.copy(alpha = 0.65f)
-            )
+            colors = selectedBackground.mapIndexed { index, color ->
+                color.copy(alpha = if (index == 1) 0.9f + 0.05f * shift else if (index == 2) 0.65f else 1f)
+            }
         )
     }
     Box(
@@ -116,17 +125,26 @@ fun LlPrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    coral: Boolean = false
+    coral: Boolean = false,
+    elevated: Boolean = true
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
-            .height(54.dp),
+            .height(54.dp)
+            .then(if (elevated) Modifier.shadow(7.dp, ButtonShape) else Modifier),
         shape = ButtonShape,
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = if (elevated) 7.dp else 0.dp,
+            pressedElevation = if (elevated) 2.dp else 0.dp,
+            focusedElevation = if (elevated) 7.dp else 0.dp,
+            hoveredElevation = if (elevated) 9.dp else 0.dp,
+            disabledElevation = 0.dp
+        ),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (coral) LlColors.Coral else LlColors.MintDeep,
+            containerColor = LlColors.MintDeep,
             contentColor = LlColors.TextOnAccent,
             disabledContainerColor = LlColors.MistDeep,
             disabledContentColor = LlColors.TextSecondary
@@ -143,17 +161,22 @@ fun LlGhostButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    contentColor: Color = LlColors.TextPrimary,
+    elevated: Boolean = true
 ) {
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp),
+            .height(52.dp)
+            .then(if (elevated) Modifier.shadow(7.dp, ButtonShape) else Modifier),
         shape = ButtonShape,
+        border = BorderStroke(1.dp, LlColors.MistDeep.copy(alpha = 0.72f)),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = LlColors.TextPrimary
+            containerColor = LlColors.SurfaceElevated.copy(alpha = 0.92f),
+            contentColor = contentColor
         )
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)

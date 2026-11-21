@@ -33,9 +33,17 @@ class LearnLockApp : Application() {
         )
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                LAUNCH_CHANNEL_ID,
+                "Запуск задания",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply { setSound(null, null) }
+        )
     }
 
     companion object {
         const val LOCK_CHANNEL_ID = "learnlock_session"
+        const val LAUNCH_CHANNEL_ID = "learnlock_launch"
     }
 }

@@ -7,11 +7,12 @@ import com.learnlock.taskengine.TaskCategory
 /**
  * Профиль ребёнка и настройки LearnLock (одна строка в БД).
  *
- * [sessionMinutes] — длительность свободного доступа после верного ответа,
- * а не таймер до появления блокировки.
+ * Паузу после нужного числа верных ответов задаёт [launchIntervalMinutes]
+ * и записанный в сессии nextLaunchAtMillis.
+ * [sessionMinutes] и [accessDurationMinutes] хранятся и запуск не считают.
  *
- * [activeWindowStartHour]/[activeWindowEndHour] — часы, когда задачи показываются;
- * вне окна поведение задаёт [outsideWindowMode].
+ * [activeWindowStartHour], [activeWindowEndHour] и [outsideWindowMode] тоже хранятся.
+ * [com.learnlock.app.data.LearnLockRepository.shouldPresentLock] их не читает.
  */
 @Entity(tableName = "child_profile")
 data class ChildProfileEntity(
@@ -20,8 +21,15 @@ data class ChildProfileEntity(
     val ageYears: Int = 8,
     /** Смещение сложности: −1 легче, 0 норма, +1 сложнее. */
     val difficultyOffset: Int = 0,
-    /** Минуты свободного пользования после решения / parent PIN. */
-    val sessionMinutes: Int = 15,
+    /** Старое поле длительности. Запуском и показом не управляет. */
+    val sessionMinutes: Int = 30,
+    /** Минуты до следующего задания после набранной серии или родительского PIN. */
+    val launchIntervalMinutes: Int = 30,
+    /** Старое поле длительности доступа. Запуском и показом не управляет. */
+    val accessDurationMinutes: Int = 5,
+    val tasksToUnlock: Int = 10,
+    /** Вариант фона главного и экранов настроек. */
+    val backgroundColor: Int = 0,
     val activeWindowStartHour: Int = 7,
     val activeWindowEndHour: Int = 21,
     val outsideWindowMode: String = OutsideWindowMode.NO_TASKS.name,
@@ -39,9 +47,8 @@ data class ChildProfileEntity(
 )
 
 /**
- * Поведение вне активного окна часов.
- * - [NO_TASKS] — телефон свободен без задач
- * - [HARD_BLOCK] — всё равно требовать задачу (жёсткий режим)
+ * Сохранённое значение колонки outsideWindowMode.
+ * На показ задания не влияет.
  */
 enum class OutsideWindowMode {
     NO_TASKS,
@@ -53,7 +60,14 @@ enum class OutsideWindowMode {
 data class ParentAuthEntity(
     @PrimaryKey val id: Int = 1,
     val pinHash: String,
-    val salt: String
+    val salt: String,
+    val failedAttempts: Int = 0,
+    val lockedUntilMillis: Long = 0L
+)
+
+data class ParentPinVerification(
+    val valid: Boolean,
+    val lockedUntilMillis: Long = 0L
 )
 
 /** Одна попытка решения (или parent unlock) для статистики и адаптации. */
@@ -71,15 +85,22 @@ data class TaskAttemptEntity(
 
 /**
  * Эфемерное состояние сессии (DataStore, не Room).
- * @property unlockedUntilMillis до какого момента не показывать задачу
+ * @property unlockedUntilMillis устаревший ключ DataStore, показ его не читает
+ * @property nextLaunchAtMillis момент следующего задания; пока он в будущем, экран не показывается
  * @property consecutiveWrong подряд ошибок (для упрощения)
  * @property lastAccuracyWindow кэш точности за неделю
  */
 data class SessionState(
     val unlockedUntilMillis: Long = 0L,
+    val nextLaunchAtMillis: Long = 0L,
+    val tasksSolved: Int = 0,
     val consecutiveWrong: Int = 0,
     val lastAccuracyWindow: Double = 0.7
 )
+
+/** Не даёт сохранить профиль, в котором выключены все категории задач. */
+fun ChildProfileEntity.withAtLeastOneCategory(): ChildProfileEntity =
+    if (mathEnabled || readingEnabled || logicEnabled) this else copy(mathEnabled = true)
 
 /** Включённые категории задач по флагам профиля. */
 fun ChildProfileEntity.enabledCategories(): Set<TaskCategory> = buildSet {

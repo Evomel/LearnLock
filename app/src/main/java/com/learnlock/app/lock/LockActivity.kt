@@ -20,6 +20,21 @@ import com.learnlock.app.ui.viewmodel.LockViewModelFactory
  * Кнопка Back блокируется, кроме режима preview с главного экрана.
  */
 class LockActivity : ComponentActivity() {
+    override fun onStart() {
+        super.onStart()
+        LockController.onLockActivityStarted()
+    }
+
+    override fun onStop() {
+        LockController.onLockActivityStopped()
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        LockController.onLockActivityClosed()
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -47,7 +62,7 @@ class LockActivity : ComponentActivity() {
         setContent {
             LearnLockTheme {
                 val vm: LockViewModel = viewModel(
-                    factory = LockViewModelFactory(app.container.repository)
+                    factory = LockViewModelFactory(app, app.container.repository)
                 )
                 LaunchedEffect(forcePreview) { vm.load(forcePreview = forcePreview) }
                 LockTaskScreen(

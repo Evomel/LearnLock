@@ -30,6 +30,9 @@ interface ParentAuthDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(auth: ParentAuthEntity)
+
+    @Query("DELETE FROM parent_auth WHERE id = 1")
+    suspend fun delete()
 }
 
 /** История попыток решения задач и emergency-разблокировок. */

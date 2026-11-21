@@ -2,6 +2,10 @@ package com.learnlock.app.lock
 
 import android.content.Context
 import android.content.Intent
+import android.app.AlarmManager
+import android.app.PendingIntent
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import android.os.Build
 import android.provider.Settings
 import com.learnlock.app.LearnLockApp
@@ -9,6 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Центральная точка управления блокировкой.
@@ -16,6 +22,10 @@ import kotlinx.coroutines.launch
  */
 object LockController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val lockVisible = AtomicBoolean(false)
+    private val lockInFront = AtomicBoolean(false)
+    private val launchNotificationShown = AtomicBoolean(false)
+    private const val LAUNCH_ALARM_REQUEST = 1002
 
     /** Запускает foreground-сервис, слушающий пробуждение экрана. */
     fun startMonitoring(context: Context) {
@@ -32,6 +42,33 @@ object LockController {
         context.stopService(Intent(context, LockMonitorService::class.java))
     }
 
+    fun scheduleNextLaunch(context: Context) {
+        val appContext = context.applicationContext
+        val app = appContext as? LearnLockApp ?: return
+        scope.launch {
+            val atMillis = app.container.repository.observeSession().first().nextLaunchAtMillis
+            if (atMillis <= System.currentTimeMillis()) return@launch
+            val alarmManager = appContext.getSystemService(AlarmManager::class.java)
+            val pendingIntent = launchAlarmIntent(appContext)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+                !alarmManager.canScheduleExactAlarms()
+            ) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
+            }
+        }
+    }
+
+    /** Снимает alarm следующего запуска. Тот же request code, что у [scheduleNextLaunch]. */
+    fun cancelScheduledLaunch(context: Context) {
+        val appContext = context.applicationContext
+        val alarmManager = appContext.getSystemService(AlarmManager::class.java)
+        val pendingIntent = launchAlarmIntent(appContext)
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+    }
+
     /**
      * Вызывается при SCREEN_ON / USER_PRESENT.
      * Показывает задачу только если [LearnLockRepository.shouldPresentLock] = true.
@@ -41,16 +78,21 @@ object LockController {
         val app = appContext as? LearnLockApp ?: return
         scope.launch {
             if (app.container.repository.shouldPresentLock()) {
+                showLaunchNotification(appContext)
                 presentLock(appContext)
             }
         }
     }
+
+    fun onScheduledCheck(context: Context) = onScreenAwake(context)
 
     /**
      * Открывает экран задачи поверх приложений.
      * @param forcePreview true — показать задачу даже при активной сессии (кнопка проверки)
      */
     fun presentLock(context: Context, forcePreview: Boolean = false) {
+        if (!forcePreview && lockVisible.get() && lockInFront.get()) return
+        if (!forcePreview) lockVisible.set(true)
         val intent = Intent(context, LockActivity::class.java).apply {
             putExtra(LockActivity.EXTRA_FORCE_PREVIEW, forcePreview)
             addFlags(
@@ -63,7 +105,57 @@ object LockController {
         context.startActivity(intent)
     }
 
+    fun showLaunchNotification(context: Context) {
+        if (!launchNotificationShown.compareAndSet(false, true)) return
+        val intent = Intent(context, LockActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            1003,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, LearnLockApp.LAUNCH_CHANNEL_ID)
+            .setSmallIcon(com.learnlock.app.R.drawable.ic_launcher)
+            .setContentTitle("Время задания")
+            .setContentText("Решите задания, чтобы открыть телефон")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setFullScreenIntent(pendingIntent, true)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(1003, notification)
+        } catch (_: SecurityException) {
+            launchNotificationShown.set(false)
+        }
+    }
+
+    fun onLockActivityStarted() {
+        lockVisible.set(true)
+        lockInFront.set(true)
+    }
+
+    fun onLockActivityStopped() {
+        lockInFront.set(false)
+    }
+
+    fun onLockActivityClosed() {
+        lockVisible.set(false)
+        lockInFront.set(false)
+        launchNotificationShown.set(false)
+    }
+
     /** Есть ли разрешение «поверх других окон» (задел; MVP стартует Activity). */
     fun canDrawOverlays(context: Context): Boolean =
         Settings.canDrawOverlays(context)
+
+    private fun launchAlarmIntent(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            LAUNCH_ALARM_REQUEST,
+            Intent(context, LaunchAlarmReceiver::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 }

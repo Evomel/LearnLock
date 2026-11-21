@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +39,7 @@ import com.learnlock.app.ui.components.LlBrandMark
 import com.learnlock.app.ui.components.LlChoiceTile
 import com.learnlock.app.ui.components.LlGhostButton
 import com.learnlock.app.ui.components.LlPanel
+import com.learnlock.app.ui.components.LlPinField
 import com.learnlock.app.ui.components.LlPrimaryButton
 import com.learnlock.app.ui.theme.LlColors
 import com.learnlock.app.ui.viewmodel.LockUiState
@@ -93,6 +93,11 @@ fun LockTaskScreen(
             LlBrandMark(
                 light = true,
                 subtitle = "Реши задачу — и телефон снова твой"
+            )
+            Text(
+                "Решено: ${state.tasksSolved} из ${state.tasksRequired}",
+                color = LlColors.Mist,
+                style = MaterialTheme.typography.titleMedium
             )
 
             AnimatedContent(
@@ -153,7 +158,14 @@ fun LockTaskScreen(
                                         enabled = state.cooldownSeconds == 0,
                                         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
                                         colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = LlColors.Surface,
+                                            unfocusedContainerColor = LlColors.Surface,
+                                            focusedTextColor = LlColors.TextPrimary,
+                                            unfocusedTextColor = LlColors.TextPrimary,
+                                            focusedLabelColor = LlColors.MintDeep,
+                                            unfocusedLabelColor = LlColors.TextSecondary,
                                             focusedBorderColor = LlColors.MintDeep,
+                                            unfocusedBorderColor = LlColors.TextSecondary,
                                             cursorColor = LlColors.MintDeep
                                         )
                                     )
@@ -228,16 +240,10 @@ fun LockTaskScreen(
             )
             if (state.showParentPin) {
                 LlPanel {
-                    OutlinedTextField(
+                    LlPinField(
                         value = parentPin,
-                        onValueChange = {
-                            if (it.length <= 12 && it.all(Char::isDigit)) parentPin = it
-                        },
-                        label = { Text("PIN родителя") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                        onValueChange = { parentPin = it },
+                        label = "PIN родителя"
                     )
                     LlPrimaryButton(
                         text = "Разблокировать",

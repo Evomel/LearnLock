@@ -23,6 +23,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 val profile = app.container.repository.getProfileOrDefault()
                 if (profile.lockEnabled) {
                     LockController.startMonitoring(context)
+                    LockController.scheduleNextLaunch(context)
                     LockController.onScreenAwake(context)
                 }
             } finally {
