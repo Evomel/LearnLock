@@ -28,7 +28,11 @@ data class LockUiState(
     val showParentPin: Boolean = false,
     val unlocked: Boolean = false,
     val tasksSolved: Int = 0,
-    val tasksRequired: Int = 1
+    val tasksRequired: Int = 1,
+    /** Запуск с ярлыка: без лимита и без закрытия после серии. */
+    val unlimited: Boolean = false,
+    val sessionCorrect: Int = 0,
+    val sessionWrong: Int = 0
 )
 
 /**
@@ -46,30 +50,28 @@ class LockViewModel(
 
     /**
      * Загружает задачу.
-     * @param forcePreview если true — показывает задачу даже при ещё не наступившем запуске.
-     * endSessionNow при этом только очищает устаревший unlocked_until.
+     * @param unlimited запуск с ярлыка: лимит заданий не действует и телефон сам не разблокируется
      */
-    fun load(forcePreview: Boolean = false) {
+    fun load(unlimited: Boolean = false) {
         viewModelScope.launch {
             val profile = repository.getProfileOrDefault()
             val session = repository.observeSession().first()
-            // Preview с главного экрана всегда показывает задачу.
-            if (!forcePreview && repository.isSessionActive()) {
-                uiState = uiState.copy(loading = false, unlocked = true, profile = profile)
+            if (!unlimited && repository.isSessionActive()) {
+                uiState = uiState.copy(loading = false, unlocked = true, profile = profile, unlimited = false)
                 return@launch
-            }
-            if (forcePreview) {
-                repository.endSessionNow()
             }
             val task = repository.nextTask()
             uiState = uiState.copy(
                 loading = false,
                 unlocked = false,
+                unlimited = unlimited,
                 profile = profile,
-                tasksSolved = session.tasksSolved,
+                tasksSolved = if (unlimited) 0 else session.tasksSolved,
                 tasksRequired = profile.tasksToUnlock.coerceAtLeast(1),
+                sessionCorrect = 0,
+                sessionWrong = 0,
                 task = task,
-                feedback = if (forcePreview) "Режим проверки задачи" else null
+                feedback = null
             )
         }
     }
@@ -81,7 +83,7 @@ class LockViewModel(
         uiState = uiState.copy(
             hintUsed = true,
             hintVisible = true,
-            feedback = task.hint ?: "Подумай ещё"
+            feedback = if (task.hint == null) "Подумай ещё" else null
         )
     }
 
@@ -96,18 +98,35 @@ class LockViewModel(
         viewModelScope.launch {
             try {
                 if (task.matches(raw)) {
-                    val solved = repository.onCorrectAnswer(task, uiState.hintUsed)
-                    val completed = solved >= uiState.tasksRequired
-                    if (completed) {
-                        repository.scheduleNextLaunch(uiState.profile, resetProgress = true)
-                        LockController.scheduleNextLaunch(application)
-                        uiState = uiState.copy(unlocked = true, tasksSolved = solved, feedback = "Все задания решены. Телефон разблокирован.")
+                    if (uiState.unlimited) {
+                        repository.recordPracticeAttempt(task, correct = true, usedHint = uiState.hintUsed)
+                        val correct = uiState.sessionCorrect + 1
+                        uiState = uiState.copy(
+                            sessionCorrect = correct,
+                            task = repository.nextTask(),
+                            hintVisible = false,
+                            hintUsed = false,
+                            feedback = "Верно"
+                        )
                     } else {
-                        uiState = uiState.copy(tasksSolved = solved, task = repository.nextTask(), hintVisible = false, hintUsed = false, feedback = "Верно. Осталось заданий: ${uiState.tasksRequired - solved}")
+                        val solved = repository.onCorrectAnswer(task, uiState.hintUsed)
+                        val completed = solved >= uiState.tasksRequired
+                        if (completed) {
+                            repository.scheduleNextLaunch(uiState.profile, resetProgress = true)
+                            LockController.scheduleNextLaunch(application)
+                            uiState = uiState.copy(unlocked = true, tasksSolved = solved, feedback = "Все задания решены. Телефон разблокирован.")
+                        } else {
+                            uiState = uiState.copy(tasksSolved = solved, task = repository.nextTask(), hintVisible = false, hintUsed = false, feedback = "Верно. Осталось заданий: ${uiState.tasksRequired - solved}")
+                        }
                     }
                 } else {
-                    repository.onWrongAnswer(task, uiState.hintUsed)
-                    uiState = uiState.copy(feedback = "Неверно. Попробуй ещё раз.")
+                    if (uiState.unlimited) {
+                        repository.recordPracticeAttempt(task, correct = false, usedHint = uiState.hintUsed)
+                        uiState = uiState.copy(sessionWrong = uiState.sessionWrong + 1, feedback = "Неверно. Попробуй ещё раз.")
+                    } else {
+                        repository.onWrongAnswer(task, uiState.hintUsed)
+                        uiState = uiState.copy(feedback = "Неверно. Попробуй ещё раз.")
+                    }
                     for (sec in 2 downTo 1) {
                         uiState = uiState.copy(cooldownSeconds = sec)
                         delay(1000)

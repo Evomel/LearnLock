@@ -1,5 +1,6 @@
 package com.learnlock.app.ui
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,8 +38,11 @@ import com.learnlock.app.ui.viewmodel.MainViewModelFactory
  * Экран задачи живёт в отдельной [com.learnlock.app.lock.LockActivity].
  */
 class MainActivity : ComponentActivity() {
+    private val openRoute = androidx.compose.runtime.mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        openRoute.value = intent.getStringExtra(EXTRA_OPEN)
         enableEdgeToEdge()
         val app = application as LearnLockApp
         setContent {
@@ -47,16 +51,36 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = Color.Transparent
                 ) {
-                    LearnLockNav(app)
+                    LearnLockNav(
+                        app = app,
+                        openRoute = openRoute.value,
+                        onOpenRouteConsumed = { openRoute.value = null }
+                    )
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openRoute.value = intent.getStringExtra(EXTRA_OPEN)
+    }
+
+    companion object {
+        const val EXTRA_OPEN = "open_route"
+        const val OPEN_SETTINGS = "settings"
+        const val OPEN_HELP = "help"
     }
 }
 
 /** Граф навигации Compose для родительского/настроечного UI. */
 @Composable
-private fun LearnLockNav(app: LearnLockApp) {
+private fun LearnLockNav(
+    app: LearnLockApp,
+    openRoute: String?,
+    onOpenRouteConsumed: () -> Unit
+) {
     val navController = rememberNavController()
     val vm: MainViewModel = viewModel(
         factory = MainViewModelFactory(app, app.container.repository)
@@ -66,57 +90,36 @@ private fun LearnLockNav(app: LearnLockApp) {
         vm.bootstrap()
     }
 
+    LaunchedEffect(vm.uiState.bootstrapped, openRoute) {
+        if (!vm.uiState.bootstrapped) return@LaunchedEffect
+        when (openRoute) {
+            MainActivity.OPEN_SETTINGS -> {
+                vm.suppressAutoTasks()
+                if (vm.uiState.hasParentPin) navController.navigate("settings_pin") else navController.navigate("settings")
+                onOpenRouteConsumed()
+            }
+            MainActivity.OPEN_HELP -> {
+                vm.suppressAutoTasks()
+                navController.navigate("help")
+                onOpenRouteConsumed()
+            }
+            else -> vm.openTasksIfReady()
+        }
+    }
+
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
-            var pendingLock by remember { mutableStateOf<Boolean?>(null) }
-            var lockPinError by remember { mutableStateOf<String?>(null) }
-            if (pendingLock != null) {
-                ParentPinUnlockScreen(
-                    backgroundColor = vm.uiState.profile.backgroundColor,
-                    error = lockPinError,
-                    onVerify = { pin ->
-                        vm.verifySettingsPin(pin) { result ->
-                            if (result.valid) {
-                                val enabled = pendingLock == true
-                                lockPinError = null
-                                pendingLock = null
-                                vm.setLockEnabled(enabled)
-                            } else {
-                                lockPinError = if (result.lockedUntilMillis > System.currentTimeMillis()) {
-                                    "Слишком много ошибок. Повторите через 30 секунд."
-                                } else {
-                                    "Неверный PIN"
-                                }
-                            }
-                        }
-                    },
-                    onBack = {
-                        pendingLock = null
-                        lockPinError = null
-                    }
-                )
-            } else {
-                HomeScreen(
-                    state = vm.uiState,
-                    onOpenOnboarding = { navController.navigate("onboarding") },
-                    onOpenSettings = {
-                        if (vm.uiState.hasParentPin) navController.navigate("settings_pin") else navController.navigate("settings")
-                    },
-                    onOpenStats = { navController.navigate("stats") },
-                    onOpenHelp = { navController.navigate("help") },
-                    onOpenPermissions = { navController.navigate("permissions") },
-                    onToggleLock = { enabled ->
-                        if (vm.uiState.hasParentPin) {
-                            lockPinError = null
-                            pendingLock = enabled
-                        } else {
-                            vm.setLockEnabled(enabled)
-                        }
-                    },
-                    onPreviewLock = { vm.previewLock() },
-                    lockSwitchEnabled = vm.uiState.profileLoaded
-                )
-            }
+            HomeScreen(
+                state = vm.uiState,
+                onOpenOnboarding = { navController.navigate("onboarding") },
+                onOpenSettings = {
+                    if (vm.uiState.hasParentPin) navController.navigate("settings_pin") else navController.navigate("settings")
+                },
+                onOpenStats = { navController.navigate("stats") },
+                onOpenHelp = { navController.navigate("help") },
+                onOpenPermissions = { navController.navigate("permissions") },
+                onPreviewLock = { vm.previewLock() }
+            )
         }
         composable("onboarding") {
             OnboardingScreen(

@@ -25,7 +25,26 @@ object LockController {
     private val lockVisible = AtomicBoolean(false)
     private val lockInFront = AtomicBoolean(false)
     private val launchNotificationShown = AtomicBoolean(false)
+    private val parentHold = AtomicBoolean(false)
+    private val inAllowedApp = AtomicBoolean(false)
     private const val LAUNCH_ALARM_REQUEST = 1002
+
+    /**
+     * Во время блокировки по расписанию эти пакеты не перекрываются заданием:
+     * телефонная книга, звонки и SMS.
+     */
+    val allowedDuringLock: Set<String> = setOf(
+        "com.android.contacts",
+        "com.google.android.contacts",
+        "com.samsung.android.contacts",
+        "com.android.dialer",
+        "com.google.android.dialer",
+        "com.samsung.android.dialer",
+        "com.android.phone",
+        "com.android.mms",
+        "com.google.android.apps.messaging",
+        "com.samsung.android.messaging"
+    )
 
     /** Запускает foreground-сервис, слушающий пробуждение экрана. */
     fun startMonitoring(context: Context) {
@@ -86,15 +105,42 @@ object LockController {
 
     fun onScheduledCheck(context: Context) = onScreenAwake(context)
 
+    /** Родитель открыл настройки или справку поверх задания. Опрос не должен их закрывать. */
+    fun holdForParent() {
+        parentHold.set(true)
+    }
+
+    /**
+     * Сообщение Accessibility о переднем плане.
+     * Своё окно не трогает удержание. Чужое, кроме книги и SMS, снимает удержание.
+     */
+    fun onForegroundPackage(ownApp: Boolean, allowedApp: Boolean) {
+        if (ownApp) {
+            inAllowedApp.set(false)
+            return
+        }
+        if (allowedApp) {
+            inAllowedApp.set(true)
+            return
+        }
+        inAllowedApp.set(false)
+        parentHold.set(false)
+    }
+
     /**
      * Открывает экран задачи поверх приложений.
      * @param forcePreview true — показать задачу даже при активной сессии (кнопка проверки)
+     * @param unlimited true — запуск с ярлыка, без лимита заданий и без разблокировки по счётчику
      */
-    fun presentLock(context: Context, forcePreview: Boolean = false) {
-        if (!forcePreview && lockVisible.get() && lockInFront.get()) return
-        if (!forcePreview) lockVisible.set(true)
+    fun presentLock(context: Context, forcePreview: Boolean = false, unlimited: Boolean = false) {
+        val practice = forcePreview || unlimited
+        if (!practice && inAllowedApp.get()) return
+        if (!practice && parentHold.get()) return
+        if (!practice && lockVisible.get() && lockInFront.get()) return
+        if (!practice) lockVisible.set(true)
         val intent = Intent(context, LockActivity::class.java).apply {
             putExtra(LockActivity.EXTRA_FORCE_PREVIEW, forcePreview)
+            putExtra(LockActivity.EXTRA_UNLIMITED, unlimited || forcePreview)
             addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -135,6 +181,7 @@ object LockController {
     fun onLockActivityStarted() {
         lockVisible.set(true)
         lockInFront.set(true)
+        parentHold.set(false)
     }
 
     fun onLockActivityStopped() {

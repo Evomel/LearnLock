@@ -124,7 +124,7 @@ class LearnLockRepository(
      * Нужно ли показать экран задачи после пробуждения / смены приложения.
      *
      * Экран не показывается, если блокировка выключена или [SessionState.nextLaunchAtMillis]
-     * ещё в будущем. Часы окна профиля на это решение не влияют.
+     * ещё в будущем.
      */
     suspend fun shouldPresentLock(): Boolean {
         val profile = getProfileOrDefault()
@@ -191,6 +191,15 @@ class LearnLockRepository(
         insertAttempt(task, correct = true, usedHint = usedHint, usedParentUnlock = false)
         refreshAccuracy()
         return solved
+    }
+
+    /**
+     * Ответ в свободном запуске с ярлыка.
+     * Пишет статистику и не меняет [SessionState.tasksSolved] и срок блокировки.
+     */
+    suspend fun recordPracticeAttempt(task: Task, correct: Boolean, usedHint: Boolean) {
+        insertAttempt(task, correct = correct, usedHint = usedHint, usedParentUnlock = false)
+        refreshAccuracy()
     }
 
     /** Неверный ответ: увеличивает счётчик ошибок, сессию не открывает. */

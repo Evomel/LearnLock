@@ -38,7 +38,7 @@ fun OnboardingScreen(
                 Text("1. После сна появляется задача", style = MaterialTheme.typography.bodyLarge)
                 Text("2. Нужное число верных ответов открывает телефон до следующего запуска", style = MaterialTheme.typography.bodyLarge)
                 Text("3. Родитель всегда может разблокировать PIN", style = MaterialTheme.typography.bodyLarge)
-                Text("4. Нужны права Accessibility и автозапуск", style = MaterialTheme.typography.bodyLarge)
+                Text("4. Нужны права специальных возможностей и автозапуск", style = MaterialTheme.typography.bodyLarge)
             }
             if (!hasPin) {
                 LlPrimaryButton("Создать PIN родителя", onClick = onContinueToPin, coral = true)

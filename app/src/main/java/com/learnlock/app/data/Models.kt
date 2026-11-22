@@ -10,9 +10,6 @@ import com.learnlock.taskengine.TaskCategory
  * Паузу после нужного числа верных ответов задаёт [launchIntervalMinutes]
  * и записанный в сессии nextLaunchAtMillis.
  * [sessionMinutes] и [accessDurationMinutes] хранятся и запуск не считают.
- *
- * [activeWindowStartHour], [activeWindowEndHour] и [outsideWindowMode] тоже хранятся.
- * [com.learnlock.app.data.LearnLockRepository.shouldPresentLock] их не читает.
  */
 @Entity(tableName = "child_profile")
 data class ChildProfileEntity(
@@ -30,9 +27,6 @@ data class ChildProfileEntity(
     val tasksToUnlock: Int = 10,
     /** Вариант фона главного и экранов настроек. */
     val backgroundColor: Int = 0,
-    val activeWindowStartHour: Int = 7,
-    val activeWindowEndHour: Int = 21,
-    val outsideWindowMode: String = OutsideWindowMode.NO_TASKS.name,
     val mathEnabled: Boolean = true,
     val readingEnabled: Boolean = true,
     val logicEnabled: Boolean = true,
@@ -45,15 +39,6 @@ data class ChildProfileEntity(
     /** Главный рубильник: слушать сон/пробуждение и показывать задачи. */
     val lockEnabled: Boolean = false
 )
-
-/**
- * Сохранённое значение колонки outsideWindowMode.
- * На показ задания не влияет.
- */
-enum class OutsideWindowMode {
-    NO_TASKS,
-    HARD_BLOCK
-}
 
 /** Соль + PBKDF2-хеш родительского PIN. */
 @Entity(tableName = "parent_auth")

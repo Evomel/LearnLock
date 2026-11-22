@@ -39,6 +39,8 @@ class MainViewModel(
     var uiState by mutableStateOf(MainUiState())
         private set
 
+    private var tasksOpened = false
+
     /** Инициализация дефолтов и подписка на потоки профиля/сессии/статистики. */
     fun bootstrap() {
         viewModelScope.launch {
@@ -116,9 +118,26 @@ class MainViewModel(
         saveProfile(uiState.profile.copy(lockEnabled = enabled))
     }
 
-    /** Открывает LockActivity в режиме проверки UI. */
+    /**
+     * После настройки открывает окно заданий.
+     * Если срок блокировки уже наступил — с лимитом из настроек, иначе свободный запуск с ярлыка.
+     */
+    fun suppressAutoTasks() {
+        tasksOpened = true
+    }
+
+    fun openTasksIfReady() {
+        if (tasksOpened || !uiState.hasParentPin) return
+        tasksOpened = true
+        viewModelScope.launch {
+            val scheduled = repository.shouldPresentLock()
+            LockController.presentLock(getApplication(), unlimited = !scheduled)
+        }
+    }
+
+    /** Открывает свободный экран заданий без лимита. */
     fun previewLock() {
-        LockController.presentLock(getApplication(), forcePreview = true)
+        LockController.presentLock(getApplication(), unlimited = true)
     }
 
     fun endSession() {
